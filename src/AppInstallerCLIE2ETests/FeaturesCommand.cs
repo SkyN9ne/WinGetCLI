@@ -3,10 +3,6 @@
 
 namespace AppInstallerCLIE2ETests
 {
-    using System;
-    using System.IO;
-    using Newtonsoft.Json;
-    using Newtonsoft.Json.Linq;
     using NUnit.Framework;
 
     public class FeaturesCommand : BaseCommand
@@ -38,6 +34,7 @@ namespace AppInstallerCLIE2ETests
             ConfigureFeature("experimentalArg", true);
             ConfigureFeature("experimentalCmd", true);
             ConfigureFeature("directMSI", true);
+            ConfigureFeature("openLogsArgument", true);
             var result = TestCommon.RunAICLICommand("features", "");
             Assert.True(result.StdOut.Contains("Enabled"));
         }

@@ -126,6 +126,9 @@
   <data name="AvailableArguments" xml:space="preserve">
     <value>The following arguments are available:</value>
   </data>
+  <data name="AvailableCommandAliases" xml:space="preserve">
+    <value>The following command aliases are available:</value>
+  </data>
   <data name="AvailableCommands" xml:space="preserve">
     <value>The following commands are available:</value>
     <comment>Commands the tool supports</comment>
@@ -405,6 +408,9 @@ They can be configured through the settings file 'winget settings'.</value>
     <value>Disables VirtualTerminal display</value>
     <comment>{Locked="VirtualTerminal"}</comment>
   </data>
+  <data name="OpenLogsArgumentDescription" xml:space="preserve">
+    <value>Open the default logs location</value>
+  </data>
   <data name="Options" xml:space="preserve">
     <value>options</value>
     <comment>Options to change how a command works</comment>
@@ -666,11 +672,11 @@ They can be configured through the settings file 'winget settings'.</value>
     <value>No applicable update found.</value>
   </data>
   <data name="UpgradeCommandLongDescription" xml:space="preserve">
-    <value>Upgrades the selected package, either found by searching the installed packages list or directly from a manifest. By default, the query must case-insensitively match the id, name, or moniker of the package. Other fields can be used by passing their appropriate option.</value>
+    <value>Upgrades the selected package, either found by searching the installed packages list or directly from a manifest. By default, the query must case-insensitively match the id, name, or moniker of the package. Other fields can be used by passing their appropriate option. When no arguments are given, shows the packages with upgrades available</value>
     <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated. The match must be for any of them, with comparison ignoring case.</comment>
   </data>
   <data name="UpgradeCommandShortDescription" xml:space="preserve">
-    <value>Upgrades the given package</value>
+    <value>Shows and performs available upgrades</value>
   </data>
   <data name="Usage" xml:space="preserve">
     <value>usage</value>
@@ -723,7 +729,7 @@ They can be configured through the settings file 'winget settings'.</value>
     <value>File does not exist:</value>
   </data>
   <data name="BothManifestAndSearchQueryProvided" xml:space="preserve">
-    <value>Both local manifest and search query args are provided</value>
+    <value>Both local manifest and search query arguments are provided</value>
   </data>
   <data name="Logs" xml:space="preserve">
     <value>Logs</value>
@@ -1031,19 +1037,19 @@ Do you agree to the terms?</value>
     <value>Installer:</value>
   </data>
   <data name="ShowLabelInstallerLocale" xml:space="preserve">
-    <value>Locale:</value>
+    <value>Installer Locale:</value>
   </data>
   <data name="ShowLabelInstallerProductId" xml:space="preserve">
     <value>Store Product Id:</value>
   </data>
   <data name="ShowLabelInstallerSha256" xml:space="preserve">
-    <value>SHA256:</value>
+    <value>Installer SHA256:</value>
   </data>
   <data name="ShowLabelInstallerType" xml:space="preserve">
-    <value>Type:</value>
+    <value>Installer Type:</value>
   </data>
   <data name="ShowLabelInstallerUrl" xml:space="preserve">
-    <value>Download Url:</value>
+    <value>Installer Url:</value>
   </data>
   <data name="ShowLabelLicense" xml:space="preserve">
     <value>License:</value>
@@ -1059,6 +1065,9 @@ Do you agree to the terms?</value>
   </data>
   <data name="ShowLabelPublisher" xml:space="preserve">
     <value>Publisher:</value>
+  </data>
+  <data name="ShowLabelTags" xml:space="preserve">
+    <value>Tags:</value>
   </data>
   <data name="ShowLabelVersion" xml:space="preserve">
     <value>Version:</value>
@@ -1121,6 +1130,9 @@ Do you agree to the terms?</value>
   <data name="ShowLabelPublisherUrl" xml:space="preserve">
     <value>Publisher Url:</value>
   </data>
+  <data name="ShowLabelPurchaseUrl" xml:space="preserve">
+    <value>Purchase Url:</value>
+  </data>
   <data name="ShowLabelPublisherSupportUrl" xml:space="preserve">
     <value>Publisher Support Url:</value>
   </data>
@@ -1166,6 +1178,9 @@ Do you agree to the terms?</value>
   </data>
   <data name="InstallFlowReturnCodePackageInUse" xml:space="preserve">
     <value>Application is currently running. Exit the application then try again.</value>
+  </data>
+  <data name="InstallFlowReturnCodePackageInUseByApplication" xml:space="preserve">
+    <value>Files modified by the installer are currently in use by a different application. Exit the applications then try again.</value>
   </data>
   <data name="InstallFlowReturnCodeInstallInProgress" xml:space="preserve">
     <value>Another installation is already in progress. Try again later.</value>
@@ -1262,11 +1277,176 @@ Please specify one of them using the `--source` option to proceed.</value>
     <comment>{Locked="--include-unknown"}</comment>
   </data>
   <data name="UpgradeUnknownCount" xml:space="preserve">
-    <value>packages have version numbers that cannot be determined. Use "--include-unknown" to see all results.</value>
+    <value>packages have version numbers that cannot be determined. Using "--include-unknown" may show more results.</value>
     <comment>{Locked="--include-unknown"} This string is preceded by a (integer) number of packages that do not have notated versions. </comment>
   </data>
   <data name="UpgradeUnknownCountSingle" xml:space="preserve">
-    <value>package has a version number that cannot be determined. Use "--include-unknown" to see all results.</value>
+    <value>package has a version number that cannot be determined. Using "--include-unknown" may show more results.</value>
     <comment>{Locked="--include-unknown"} This string is preceded by a (integer) number of packages that do not have notated versions.</comment>
+  </data>
+  <data name="UpgradeUnknownVersionCount" xml:space="preserve">
+    <value>package(s) have version numbers that cannot be determined. Use "--include-unknown" to see all results.</value>
+    <comment>{Locked="--include-unknown"} This string is preceded by a (integer) number of packages that do not have notated versions. </comment>
+  </data>
+  <data name="UpgradeRequireExplicitCount" xml:space="preserve">
+    <value>package(s) is pinned and needs to be explicitly upgraded.</value>
+    <comment>This string is preceded by a (integer) number of packages that require explicit upgrades.</comment>
+  </data>
+  <data name="InvalidArgumentWithoutQueryError" xml:space="preserve">
+    <value>The arguments provided can only be used with a query.</value>
+  </data>
+  <data name="SystemArchitecture" xml:space="preserve">
+    <value>System Architecture</value>
+  </data>
+  <data name="PreserveArgumentDescription" xml:space="preserve">
+    <value>Retains all files and directories created by the package (portable)</value>
+  </data>
+  <data name="PurgeArgumentDescription" xml:space="preserve">
+    <value>Deletes all files and directories in the package directory (portable)</value>
+  </data>
+  <data name="PressEnterToContinue" xml:space="preserve">
+    <value>Press Enter to continue . . .</value>
+  </data>
+  <data name="RenameArgumentDescription" xml:space="preserve">
+    <value>The value to rename the executable file (portable)</value>
+  </data>
+  <data name="WaitArgumentDescription" xml:space="preserve">
+    <value>Prompts the user to press any key before exiting</value>
+  </data>
+  <data name="InstallerElevationExpected" xml:space="preserve">
+    <value>The installer will request to run as administrator, expect a prompt.</value>
+  </data>
+  <data name="InstallerProhibitsElevation" xml:space="preserve">
+    <value>The installer cannot be run from an administrator context.</value>
+  </data>
+  <data name="ModifiedPathRequiresShellRestart" xml:space="preserve">
+    <value>Path environment variable modified; restart your shell to use the new value.</value>
+  </data>
+  <data name="ProductCodeArgumentDescription" xml:space="preserve">
+    <value>Filters using the product code</value>
+  </data>
+  <data name="PortableRegistryCollisionOverridden" xml:space="preserve">
+    <value>A portable package with the same name but from a different source already exists; proceeding due to --force</value>
+  </data>
+  <data name="ReparsePointsNotSupportedError" xml:space="preserve">
+    <value>The volume does not support reparse points</value>
+  </data>
+  <data name="ReservedFilenameError" xml:space="preserve">
+    <value>The specified filename is not a valid filename</value>
+  </data>
+  <data name="OverwritingExistingFileAtMessage" xml:space="preserve">
+    <value>Overwriting existing file:</value>
+  </data>
+  <data name="NoPackageSelectionArgumentProvided" xml:space="preserve">
+    <value>No package selection argument was provided; see the help for details about finding a package.</value>
+  </data>
+  <data name="PortableInstallFailed" xml:space="preserve">
+    <value>Portable install failed; Cleaning up...</value>
+  </data>
+  <data name="BothPurgeAndPreserveFlagsProvided" xml:space="preserve">
+    <value>Both `purge` and `preserve` arguments are provided</value>
+  </data>
+  <data name="PortableHashMismatchOverridden" xml:space="preserve">
+    <value>Portable package has been modified; proceeding due to --force</value>
+    <comment>{Locked="--force"}</comment>
+  </data>
+  <data name="PortableHashMismatchOverrideRequired" xml:space="preserve">
+    <value>Unable to remove Portable package as it has been modified; to override this check use --force</value>
+    <comment>{Locked="--force"}</comment>
+  </data>
+  <data name="FilesRemainInInstallDirectory" xml:space="preserve">
+    <value>Files remain in install directory:</value>
+  </data>
+  <data name="PurgeInstallDirectory" xml:space="preserve">
+    <value>Purging install directory...</value>
+  </data>
+  <data name="UnableToPurgeInstallDirectory" xml:space="preserve">
+    <value>Cannot purge install directory, as it was not created by WinGet</value>
+  </data>
+  <data name="RelatedLink" xml:space="preserve">
+    <value>Related Link</value>
+  </data>
+  <data name="ShowLabelDocumentation" xml:space="preserve">
+    <value>Documentation:</value>
+  </data>
+  <data name="Notes" xml:space="preserve">
+    <value>Notes:</value>
+  </data>
+  <data name="ShowLabelInstallationNotes" xml:space="preserve">
+    <value>Installation Notes:</value>
+  </data>
+  <data name="UnsupportedArgument" xml:space="preserve">
+    <value>A provided argument is not supported for this package</value>
+  </data>
+  <data name="ExtractArchiveFailed" xml:space="preserve">
+    <value>Failed to extract the contents of the archive</value>
+  </data>
+  <data name="NestedInstallerNotFound" xml:space="preserve">
+    <value>Nested installer file does not exist. Ensure the specified relative path of the nested installer matches: </value>
+  </data>
+  <data name="InvalidPathToNestedInstaller" xml:space="preserve">
+    <value>Invalid relative file path to the nested installer; path points to a location outside of the install directory</value>
+  </data>
+  <data name="NestedInstallerNotSpecified" xml:space="preserve">
+    <value>No nested installers specified for this package</value>
+  </data>
+  <data name="MultipleNonPortableNestedInstallersSpecified" xml:space="preserve">
+    <value>Only one non-portable nested installer can be specified for an archive installer</value>
+  </data>
+  <data name="IncompatibleArgumentsProvided" xml:space="preserve">
+    <value>Incompatible command line arguments provided</value>
+  </data>
+  <data name="UpgradeAvailableForPinned" xml:space="preserve">
+    <value>The following packages have an upgrade available, but require explicit targeting for upgrade:</value>
+    <comment>"require explicit targeting for upgrade" means that the package will not be upgraded with all others unless an extra flag is added, or the package is mentioned explicitly</comment>
+  </data>
+  <data name="NestedInstallerNotSupported" xml:space="preserve">
+    <value>The nested installer type is not supported</value>
+  </data>
+  <data name="InstallerAbortsTerminal" xml:space="preserve">
+    <value>This installer is known to restart the terminal or shell</value>
+  </data>
+  <data name="InstallerRequiresInstallLocation" xml:space="preserve">
+    <value>This package requires an install location</value>
+  </data>
+  <data name="InstallersAbortTerminal" xml:space="preserve">
+    <value>The following installers are known to restart the terminal or shell:</value>
+  </data>
+  <data name="InstallersRequireInstallLocation" xml:space="preserve">
+    <value>The following installers require an install location:</value>
+  </data>
+  <data name="PromptForInstallRoot" xml:space="preserve">
+    <value>Specify the install root:</value>
+  </data>
+  <data name="PromptToProceed" xml:space="preserve">
+    <value>Do you want to proceed?</value>
+  </data>
+  <data name="ReportIdentityForAgreements" xml:space="preserve">
+    <value>Agreements for</value>
+    <comment>This will be followed by a package name, and then a list of license agreements</comment>
+  </data>
+  <data name="InstallLocationNotProvided" xml:space="preserve">
+    <value>Install location is required by the package but it was not provided</value>
+  </data>
+  <data name="DisableInteractivityArgumentDescription" xml:space="preserve">
+    <value>Disable interactive prompts</value>
+    <comment>Description for a command line argument, shown next to it in the help</comment>
+  </data>
+  <data name="PortablePackageAlreadyExists" xml:space="preserve">
+    <value>Portable package from a different source already exists</value>
+  </data>
+  <data name="ExtractArchiveSucceeded" xml:space="preserve">
+    <value>Successfully extracted archive</value>
+  </data>
+  <data name="ExtractingArchive" xml:space="preserve">
+    <value>Extracting archive...</value>
+  </data>
+  <data name="ArchiveFailedMalwareScan" xml:space="preserve">
+    <value>Archive scan detected malware; to override this check use --force</value>
+    <comment>{Locked="--force"}</comment>
+  </data>
+  <data name="ArchiveFailedMalwareScanOverridden" xml:space="preserve">
+    <value>Archive scan detected malware; proceeding due to --force</value>
+    <comment>{Locked="--force"}</comment>
   </data>
 </root>

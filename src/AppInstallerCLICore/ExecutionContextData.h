@@ -3,8 +3,10 @@
 #pragma once
 #include <winget/RepositorySource.h>
 #include <winget/Manifest.h>
+#include <winget/ARPCorrelation.h>
 #include "CompletionData.h"
 #include "PackageCollection.h"
+#include "PortableInstaller.h"
 #include "Workflows/WorkflowBase.h"
 
 #include <filesystem>
@@ -33,7 +35,7 @@ namespace AppInstaller::CLI::Execution
         InstallerPath,
         LogPath,
         InstallerArgs,
-        InstallerReturnCode,
+        OperationReturnCode,
         CompletionData,
         InstalledPackageVersion,
         UninstallString,
@@ -46,10 +48,13 @@ namespace AppInstaller::CLI::Execution
         PackagesToInstall,
         // On import: Sources for the imported packages
         Sources,
-        ARPSnapshot,
+        ARPCorrelationData,
+        CorrelatedAppsAndFeaturesEntries,
         Dependencies,
         DependencySource,
         AllowedArchitectures,
+        AllowUnknownScope,
+        PortableInstaller,
         Max
     };
 
@@ -130,7 +135,7 @@ namespace AppInstaller::CLI::Execution
         };
 
         template <>
-        struct DataMapping<Data::InstallerReturnCode>
+        struct DataMapping<Data::OperationReturnCode>
         {
             using value_t = DWORD;
         };
@@ -184,10 +189,15 @@ namespace AppInstaller::CLI::Execution
         };
 
         template <>
-        struct DataMapping<Data::ARPSnapshot>
+        struct DataMapping<Data::ARPCorrelationData>
         {
-            // Contains the { Id, Version, Channel }
-            using value_t = std::vector<std::tuple<Utility::LocIndString, Utility::LocIndString, Utility::LocIndString>>;
+            using value_t = Repository::Correlation::ARPCorrelationData;
+        };
+
+        template <>
+        struct DataMapping<Data::CorrelatedAppsAndFeaturesEntries>
+        {
+            using value_t = std::vector<Manifest::AppsAndFeaturesEntry>;
         };
 
         template <>
@@ -206,6 +216,18 @@ namespace AppInstaller::CLI::Execution
         struct DataMapping<Data::AllowedArchitectures>
         {
             using value_t = std::vector<Utility::Architecture>;
+        };
+
+        template <>
+        struct DataMapping<Data::AllowUnknownScope>
+        {
+            using value_t = bool;
+        };
+
+        template <>
+        struct DataMapping<Data::PortableInstaller>
+        {
+            using value_t = CLI::Portable::PortableInstaller;
         };
     }
 }

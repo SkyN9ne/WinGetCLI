@@ -32,20 +32,23 @@ namespace AppInstaller::Repository::SQLite
 
     namespace details
     {
+        template<typename>
+        constexpr bool dependent_false = false;
+
         template <typename T, typename = void>
         struct ParameterSpecificsImpl
         {
             static T& ToLog(T&&)
             {
-                static_assert(false, "No type specific override has been supplied");
+                static_assert(dependent_false<T>, "No type specific override has been supplied");
             }
             static void Bind(sqlite3_stmt*, int, T&&)
             {
-                static_assert(false, "No type specific override has been supplied");
+                static_assert(dependent_false<T>, "No type specific override has been supplied");
             }
             static T GetColumn(sqlite3_stmt*, int)
             {
-                static_assert(false, "No type specific override has been supplied");
+                static_assert(dependent_false<T>, "No type specific override has been supplied");
             }
         };
 
@@ -174,11 +177,15 @@ namespace AppInstaller::Repository::SQLite
         // Gets the count of changed rows for the last executed statement.
         int GetChanges() const;
 
+        //. Gets the (fixed but arbitrary) identifier for this connection.
+        size_t GetID() const;
+
         operator sqlite3* () const { return m_dbconn.get(); }
 
     private:
         Connection(const std::string& target, OpenDisposition disposition, OpenFlags flags);
 
+        size_t m_id = 0;
         wil::unique_any<sqlite3*, decltype(sqlite3_close_v2), sqlite3_close_v2> m_dbconn;
     };
 
@@ -220,7 +227,7 @@ namespace AppInstaller::Repository::SQLite
         template <typename Value>
         void Bind(int index, Value&& v)
         {
-            AICLI_LOG(SQL, Verbose, << "Binding statement #" << m_id << ": " << index << " => " << details::ParameterSpecifics<Value>::ToLog(std::forward<Value>(v)));
+            AICLI_LOG(SQL, Verbose, << "Binding statement #" << m_connectionId << '-' << m_id << ": " << index << " => " << details::ParameterSpecifics<Value>::ToLog(std::forward<Value>(v)));
             details::ParameterSpecifics<Value>::Bind(m_stmt.get(), index, std::forward<Value>(v));
         }
 
@@ -275,6 +282,7 @@ namespace AppInstaller::Repository::SQLite
             return std::make_tuple(details::ParameterSpecifics<Values>::GetColumn(m_stmt.get(), I)...);
         }
 
+        size_t m_connectionId = 0;
         size_t m_id = 0;
         wil::unique_any<sqlite3_stmt*, decltype(sqlite3_finalize), sqlite3_finalize> m_stmt;
         State m_state = State::Prepared;

@@ -177,7 +177,9 @@ namespace AppInstaller::Logging
 
     void TelemetryTraceLogger::SetCaller(const std::string& caller)
     {
-        m_caller = caller;
+        auto callerUTF16 = Utility::ConvertToUTF16(caller);
+        auto anonCaller = AnonymizeString(callerUTF16);
+        m_caller = Utility::ConvertToUTF8(anonCaller);
     }
 
     void TelemetryTraceLogger::SetExecutionStage(uint32_t stage) noexcept
@@ -219,10 +221,10 @@ namespace AppInstaller::Logging
 
             m_summary.FailureHResult = failure.hr;
             m_summary.FailureMessage = anonMessage;
-            m_summary.FailureModule = failure.pszModule;
+            m_summary.FailureModule = StringOrEmptyIfNull(failure.pszModule);
             m_summary.FailureThreadId = failure.threadId;
             m_summary.FailureType = ConvertWilFailureTypeToFailureType(failure.type);
-            m_summary.FailureFile = failure.pszFile;
+            m_summary.FailureFile = StringOrEmptyIfNull(failure.pszFile);
             m_summary.FailureLine = failure.uLineNumber;
         }
 

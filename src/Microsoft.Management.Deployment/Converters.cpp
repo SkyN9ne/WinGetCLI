@@ -172,83 +172,6 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         return metadataKey;
     }
 
-    winrt::Microsoft::Management::Deployment::InstallResultStatus GetInstallResultStatus(::AppInstaller::CLI::Workflow::ExecutionStage executionStage, winrt::hresult hresult)
-    {
-        winrt::Microsoft::Management::Deployment::InstallResultStatus resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::Ok;
-
-        // Map some known hresults to specific statuses, otherwise use the execution stage to determine the status.
-        switch (hresult)
-        {
-        case S_OK:
-            resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::Ok;
-            break;
-        case APPINSTALLER_CLI_ERROR_MSSTORE_BLOCKED_BY_POLICY:
-        case APPINSTALLER_CLI_ERROR_MSSTORE_APP_BLOCKED_BY_POLICY:
-        case APPINSTALLER_CLI_ERROR_EXPERIMENTAL_FEATURE_DISABLED:
-        case APPINSTALLER_CLI_ERROR_BLOCKED_BY_POLICY:
-            resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::BlockedByPolicy;
-            break;
-        case APPINSTALLER_CLI_ERROR_INVALID_MANIFEST:
-            resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::ManifestError;
-            break;
-        case E_INVALIDARG:
-        case APPINSTALLER_CLI_ERROR_INVALID_CL_ARGUMENTS:
-            resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::InvalidOptions;
-            break;
-        case APPINSTALLER_CLI_ERROR_NO_APPLICABLE_INSTALLER:
-            resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::NoApplicableInstallers;
-            break;
-        case APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE:
-        case APPINSTALLER_CLI_ERROR_UPGRADE_VERSION_UNKNOWN:
-        case APPINSTALLER_CLI_ERROR_UPGRADE_VERSION_NOT_NEWER:
-            resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::NoApplicableUpgrade;
-            break;
-        case APPINSTALLER_CLI_ERROR_CANNOT_WRITE_TO_UPLEVEL_INDEX:
-        case APPINSTALLER_CLI_ERROR_INDEX_INTEGRITY_COMPROMISED:
-        case APPINSTALLER_CLI_ERROR_YAML_INIT_FAILED:
-        case APPINSTALLER_CLI_ERROR_YAML_INVALID_MAPPING_KEY:
-        case APPINSTALLER_CLI_ERROR_YAML_DUPLICATE_MAPPING_KEY:
-        case APPINSTALLER_CLI_ERROR_YAML_INVALID_OPERATION:
-        case APPINSTALLER_CLI_ERROR_YAML_DOC_BUILD_FAILED:
-        case APPINSTALLER_CLI_ERROR_YAML_INVALID_EMITTER_STATE:
-        case APPINSTALLER_CLI_ERROR_YAML_INVALID_DATA:
-        case APPINSTALLER_CLI_ERROR_LIBYAML_ERROR:
-        case APPINSTALLER_CLI_ERROR_INTERNAL_ERROR:
-            resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::InternalError;
-            break;
-        default:
-            switch (executionStage)
-            {
-            case ::AppInstaller::CLI::Workflow::ExecutionStage::Initial:
-                resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::InternalError;
-                break;
-            case ::AppInstaller::CLI::Workflow::ExecutionStage::ParseArgs:
-                resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::InvalidOptions;
-                break;
-            case ::AppInstaller::CLI::Workflow::ExecutionStage::Discovery:
-                resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::CatalogError;
-                break;
-            case ::AppInstaller::CLI::Workflow::ExecutionStage::Download:
-                resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::DownloadError;
-                break;
-            case ::AppInstaller::CLI::Workflow::ExecutionStage::PreExecution:
-                resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::InternalError;
-                break;
-            case ::AppInstaller::CLI::Workflow::ExecutionStage::Execution:
-                resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::InstallError;
-                break;
-            case ::AppInstaller::CLI::Workflow::ExecutionStage::PostExecution:
-                resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::InternalError;
-                break;
-            default:
-                resultStatus = winrt::Microsoft::Management::Deployment::InstallResultStatus::InternalError;
-                break;
-            }
-        }
-
-        return resultStatus;
-    }
-
     winrt::Microsoft::Management::Deployment::FindPackagesResultStatus FindPackagesResultStatus(winrt::hresult hresult)
     {
         winrt::Microsoft::Management::Deployment::FindPackagesResultStatus resultStatus = winrt::Microsoft::Management::Deployment::FindPackagesResultStatus::Ok;
@@ -318,5 +241,70 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         }
 
         return {};
+    }
+
+    std::pair<::AppInstaller::Manifest::ScopeEnum, bool> GetManifestScope(winrt::Microsoft::Management::Deployment::PackageInstallScope scope)
+    {
+        switch (scope)
+        {
+        case winrt::Microsoft::Management::Deployment::PackageInstallScope::Any:
+            return std::make_pair(::AppInstaller::Manifest::ScopeEnum::Unknown, false);
+        case winrt::Microsoft::Management::Deployment::PackageInstallScope::User:
+            return std::make_pair(::AppInstaller::Manifest::ScopeEnum::User, false);
+        case winrt::Microsoft::Management::Deployment::PackageInstallScope::System:
+            return std::make_pair(::AppInstaller::Manifest::ScopeEnum::Machine, false);
+        case winrt::Microsoft::Management::Deployment::PackageInstallScope::UserOrUnknown:
+            return std::make_pair(::AppInstaller::Manifest::ScopeEnum::User, true);
+        case winrt::Microsoft::Management::Deployment::PackageInstallScope::SystemOrUnknown:
+            return std::make_pair(::AppInstaller::Manifest::ScopeEnum::Machine, true);
+        }
+
+        return std::make_pair(::AppInstaller::Manifest::ScopeEnum::Unknown, false);
+    }
+
+    winrt::Microsoft::Management::Deployment::PackageInstallerType GetDeploymentInstallerType(::AppInstaller::Manifest::InstallerTypeEnum installerType)
+    {
+        switch (installerType)
+        {
+        case ::AppInstaller::Manifest::InstallerTypeEnum::Burn:
+            return Microsoft::Management::Deployment::PackageInstallerType::Burn;
+        case ::AppInstaller::Manifest::InstallerTypeEnum::Exe:
+            return Microsoft::Management::Deployment::PackageInstallerType::Exe;
+        case ::AppInstaller::Manifest::InstallerTypeEnum::Inno:
+            return Microsoft::Management::Deployment::PackageInstallerType::Inno;
+        case ::AppInstaller::Manifest::InstallerTypeEnum::Msi:
+            return Microsoft::Management::Deployment::PackageInstallerType::Msi;
+        case ::AppInstaller::Manifest::InstallerTypeEnum::Msix:
+            return Microsoft::Management::Deployment::PackageInstallerType::Msix;
+        case ::AppInstaller::Manifest::InstallerTypeEnum::MSStore:
+            return Microsoft::Management::Deployment::PackageInstallerType::MSStore;
+        case ::AppInstaller::Manifest::InstallerTypeEnum::Nullsoft:
+            return Microsoft::Management::Deployment::PackageInstallerType::Nullsoft;
+        case ::AppInstaller::Manifest::InstallerTypeEnum::Portable:
+            return Microsoft::Management::Deployment::PackageInstallerType::Portable;
+        case ::AppInstaller::Manifest::InstallerTypeEnum::Wix:
+            return Microsoft::Management::Deployment::PackageInstallerType::Wix;
+        case ::AppInstaller::Manifest::InstallerTypeEnum::Zip:
+            return Microsoft::Management::Deployment::PackageInstallerType::Zip;
+        case ::AppInstaller::Manifest::InstallerTypeEnum::Unknown:
+            return Microsoft::Management::Deployment::PackageInstallerType::Unknown;
+        }
+
+        return Microsoft::Management::Deployment::PackageInstallerType::Unknown;
+    }
+
+    winrt::Microsoft::Management::Deployment::PackageInstallerScope GetDeploymentInstallerScope(::AppInstaller::Manifest::ScopeEnum installerScope)
+    {
+        switch (installerScope)
+        {
+        case ::AppInstaller::Manifest::ScopeEnum::User:
+            return Microsoft::Management::Deployment::PackageInstallerScope::User;
+        case ::AppInstaller::Manifest::ScopeEnum::Machine:
+            return Microsoft::Management::Deployment::PackageInstallerScope::System;
+        case ::AppInstaller::Manifest::ScopeEnum::Unknown:
+            return Microsoft::Management::Deployment::PackageInstallerScope::Unknown;
+        }
+
+        return Microsoft::Management::Deployment::PackageInstallerScope::Unknown;
     }
 }

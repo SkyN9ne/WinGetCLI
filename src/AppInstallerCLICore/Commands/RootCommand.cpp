@@ -160,6 +160,16 @@ namespace AppInstaller::CLI
         {
             ExecuteInternal(context);
         }
+
+        if (context.Args.Contains(Execution::Args::Type::OpenLogs))
+        {
+            ShellExecute(NULL, NULL, Runtime::GetPathTo(Runtime::PathName::DefaultLogLocation).wstring().c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
+
+        if (context.Args.Contains(Execution::Args::Type::Wait))
+        {
+            context.Reporter.PromptForEnter();
+        }
     }
 
     void RootCommand::ExecuteInternal(Execution::Context& context) const
@@ -172,6 +182,8 @@ namespace AppInstaller::CLI
 
             info << std::endl <<
                 "Windows: "_liv << Runtime::GetOSVersion() << std::endl;
+
+            info << Resource::String::SystemArchitecture << ": "_liv << Utility::ToString(Utility::GetSystemArchitecture()) << std::endl;
 
             if (Runtime::IsRunningInPackagedContext())
             {
@@ -196,7 +208,7 @@ namespace AppInstaller::CLI
         }
         else if (context.Args.Contains(Execution::Args::Type::ListVersions))
         {
-            context.Reporter.Info() << 'v' << Runtime::GetClientVersion();
+            context.Reporter.Info() << 'v' << Runtime::GetClientVersion() << std::endl;
         }
         else
         {

@@ -3,6 +3,7 @@
 #pragma once
 
 #include <vector>
+#include <winget/LocIndependent.h>
 
 namespace AppInstaller::Utility
 {
@@ -19,10 +20,10 @@ namespace AppInstaller::Utility
     };
 
     // Converts a string to corresponding enum
-    Architecture ConvertToArchitectureEnum(const std::string& archStr);
+    Architecture ConvertToArchitectureEnum(std::string_view archStr);
 
     // Converts an Architecture to a string_view
-    std::string_view ToString(Architecture architecture);
+    LocIndView ToString(Architecture architecture);
 
     // Gets the system's architecture as Architecture enum
     AppInstaller::Utility::Architecture GetSystemArchitecture();

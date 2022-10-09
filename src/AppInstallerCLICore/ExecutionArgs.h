@@ -41,6 +41,12 @@ namespace AppInstaller::CLI::Execution
             InstallArchitecture,
             HashOverride, // Ignore hash mismatches
             AcceptPackageAgreements, // Accept all license agreements for packages
+            Rename, // Renames the file of the executable. Only applies to the portable installerType
+
+            // Uninstall behavior
+            Purge, // Removes all files and directories related to a package during an uninstall. Only applies to the portable installerType.
+            Preserve, // Retains any files and directories created by the portable exe.
+            ProductCode, // Uninstalls using the product code as the identifier.
 
             //Source Command
             SourceName,
@@ -73,19 +79,27 @@ namespace AppInstaller::CLI::Execution
             AdminSettingEnable,
             AdminSettingDisable,
 
-            // Other
+            // Upgrade command
             All, // Used in Update command to update all installed packages to latest
+            IncludeUnknown, // Used in Upgrade command to allow upgrades of packages with unknown versions
+
+            // Show command
             ListVersions, // Used in Show command to list all available versions of an app
+
+            // Common arguments
             NoVT, // Disable VirtualTerminal outputs
             RetroStyle, // Makes progress display as retro
             RainbowStyle, // Makes progress display as a rainbow
             Help, // Show command usage
             Info, // Show general info about WinGet
             VerboseLogs, // Increases winget logging level to verbose
+            DisableInteractivity, // Disable interactive prompts
+            Wait, // Prompts the user to press any key before exiting
+            OpenLogs, // Opens the default logs directory after executing the command
+
             DependencySource, // Index source to be queried against for finding dependencies
             CustomHeader, // Optional Rest source header
             AcceptSourceAgreements, // Accept all source agreements
-            IncludeUnknown, // Used in Upgrade command to allow upgrades of packages with unknown versions
 
             // Used for demonstration purposes
             ExperimentalArg,

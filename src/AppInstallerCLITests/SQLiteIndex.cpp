@@ -4,6 +4,7 @@
 #include "TestCommon.h"
 #include <SQLiteWrapper.h>
 #include <PackageDependenciesValidation.h>
+#include <ArpVersionValidation.h>
 #include <Microsoft/SQLiteIndex.h>
 #include <winget/Manifest.h>
 #include <AppInstallerStrings.h>
@@ -34,7 +35,7 @@ SQLiteIndex CreateTestIndex(const std::string& filePath, std::optional<Schema::V
     // If no specific version requested, then use generator to run against the last 3 versions.
     if (!version)
     {
-        version = GENERATE(Schema::Version{ 1, 2 }, Schema::Version{ 1, 3 }, Schema::Version::Latest());
+        version = GENERATE(Schema::Version{ 1, 2 }, Schema::Version{ 1, 3 }, Schema::Version{ 1, 4 }, Schema::Version::Latest());
     }
 
     return SQLiteIndex::CreateNew(filePath, version.value());
@@ -67,6 +68,16 @@ Schema::Version TestPrepareForRead(SQLiteIndex& index)
         Schema::Version version = GENERATE(Schema::Version{ 1, 2 }, Schema::Version{ 1, 3 }, Schema::Version{ 1, 4 });
 
         if (version != Schema::Version{ 1, 4 })
+        {
+            index.ForceVersion(version);
+            return version;
+        }
+    }
+    else if (index.GetVersion() == Schema::Version{ 1, 5 })
+    {
+        Schema::Version version = GENERATE(Schema::Version{ 1, 2 }, Schema::Version{ 1, 3 }, Schema::Version{ 1, 4 }, Schema::Version{ 1, 5 });
+
+        if (version != Schema::Version{ 1, 5 })
         {
             index.ForceVersion(version);
             return version;
@@ -182,6 +193,36 @@ struct IndexFields
         ProductCodes(std::move(productCodes))
     {}
 
+    IndexFields(
+        std::string id,
+        std::string name,
+        std::string publisher,
+        std::string moniker,
+        std::string version,
+        std::string channel,
+        std::vector<NormalizedString> tags,
+        std::vector<NormalizedString> commands,
+        std::string path,
+        std::vector<NormalizedString> packageFamilyNames,
+        std::vector<NormalizedString> productCodes,
+        std::string arpName,
+        std::string arpPublisher
+    ) :
+        Id(std::move(id)),
+        Name(std::move(name)),
+        Publisher(std::move(publisher)),
+        Moniker(std::move(moniker)),
+        Version(std::move(version)),
+        Channel(std::move(channel)),
+        Tags(std::move(tags)),
+        Commands(std::move(commands)),
+        Path(std::move(path)),
+        PackageFamilyNames(std::move(packageFamilyNames)),
+        ProductCodes(std::move(productCodes)),
+        ArpName(std::move(arpName)),
+        ArpPublisher(std::move(arpPublisher))
+    {}
+
     std::string Id;
     std::string Name;
     std::string Publisher;
@@ -193,6 +234,8 @@ struct IndexFields
     std::string Path;
     std::vector<NormalizedString> PackageFamilyNames;
     std::vector<NormalizedString> ProductCodes;
+    std::string ArpName;
+    std::string ArpPublisher;
 };
 
 SQLiteIndex SearchTestSetup(const std::string& filePath, std::initializer_list<IndexFields> data = {}, std::optional<Schema::Version> version = {})
@@ -230,6 +273,13 @@ SQLiteIndex SearchTestSetup(const std::string& filePath, std::initializer_list<I
             manifest.Installers[i].ProductCode = d.ProductCodes[i];
         }
 
+        if (!d.ArpName.empty() || !d.ArpPublisher.empty())
+        {
+            manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+            manifest.Installers[0].AppsAndFeaturesEntries[0].DisplayName = d.ArpName;
+            manifest.Installers[0].AppsAndFeaturesEntries[0].Publisher = d.ArpPublisher;
+        }
+
         index.AddManifest(manifest, d.Path);
     };
 
@@ -263,6 +313,12 @@ bool AreManifestHashesSupported(const SQLiteIndex& index, const Schema::Version&
 {
     UNSCOPED_INFO("Index " << index.GetVersion() << " | Test " << testVersion);
     return (index.GetVersion() >= Schema::Version{ 1, 3 } && testVersion >= Schema::Version{ 1, 3 });
+}
+
+bool AreArpVersionsSupported(const SQLiteIndex& index, const Schema::Version& testVersion)
+{
+    UNSCOPED_INFO("Index " << index.GetVersion() << " | Test " << testVersion);
+    return (index.GetVersion() >= Schema::Version{ 1, 5 } && testVersion >= Schema::Version{ 1, 5 });
 }
 
 std::string GetPropertyStringByKey(const SQLiteIndex& index, SQLite::rowid_t id, PackageVersionProperty property, std::string_view version, std::string_view channel)
@@ -312,7 +368,7 @@ TEST_CASE("SQLiteIndexCreateLatestAndReopen", "[sqliteindex]")
     // Reopen the index for read only
     {
         INFO("Trying with Read");
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::Read);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::Read);
         Schema::Version versionRead = index.GetVersion();
         REQUIRE(versionRead == versionCreated);
     }
@@ -320,7 +376,7 @@ TEST_CASE("SQLiteIndexCreateLatestAndReopen", "[sqliteindex]")
     // Reopen the index for read/write
     {
         INFO("Trying with ReadWrite");
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
         Schema::Version versionRead = index.GetVersion();
         REQUIRE(versionRead == versionCreated);
     }
@@ -328,7 +384,7 @@ TEST_CASE("SQLiteIndexCreateLatestAndReopen", "[sqliteindex]")
     // Reopen the index for immutable read
     {
         INFO("Trying with Immutable");
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::Immutable);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::Immutable);
         Schema::Version versionRead = index.GetVersion();
         REQUIRE(versionRead == versionCreated);
     }
@@ -429,7 +485,7 @@ TEST_CASE("SQLiteIndex_VersionReferencedByDependenciesClearsUnusedVersionAndKeep
     }
 }
 
-TEST_CASE("SQLiteIndex_AddManifestWithDependencies", "[sqliteindex][V1_4]")
+TEST_CASE("SQLiteIndex_AddUpdateRemoveManifestWithDependencies", "[sqliteindex][V1_4]")
 {
     TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
     INFO("Using temporary file named: " << tempFile.GetPath());
@@ -447,6 +503,8 @@ TEST_CASE("SQLiteIndex_AddManifestWithDependencies", "[sqliteindex][V1_4]")
     manifest.Installers[0].Dependencies.Add(Dependency(DependencyType::Package, dependencyManifest2.Id, "1.0.0"));
 
     index.AddManifest(manifest, GetPathFromManifest(manifest));
+    index.UpdateManifest(manifest, GetPathFromManifest(manifest));
+    index.RemoveManifest(manifest);
 }
 
 TEST_CASE("SQLiteIndex_AddManifestWithDependencies_MissingPackage", "[sqliteindex][V1_4]")
@@ -469,7 +527,7 @@ TEST_CASE("SQLiteIndex_AddManifestWithDependencies_MissingPackage", "[sqliteinde
     REQUIRE_THROWS_HR(index.AddManifest(manifest, GetPathFromManifest(manifest)), APPINSTALLER_CLI_ERROR_MISSING_PACKAGE);
 }
 
-TEST_CASE("SQLiteIndex_AddManifestWithDependencies_MissingVersion", "[sqliteindex][V1_4]")
+TEST_CASE("SQLiteIndex_AddUpdateRemoveManifestWithDependencies_MissingVersion", "[sqliteindex][V1_4]")
 {
     TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
     INFO("Using temporary file named: " << tempFile.GetPath());
@@ -487,9 +545,11 @@ TEST_CASE("SQLiteIndex_AddManifestWithDependencies_MissingVersion", "[sqliteinde
     manifest.Installers[0].Dependencies.Add(Dependency(DependencyType::Package, dependencyManifest2.Id, "0.0.2"));
 
     index.AddManifest(manifest, GetPathFromManifest(manifest));
+    index.UpdateManifest(manifest, GetPathFromManifest(manifest));
+    index.RemoveManifest(manifest);
 }
 
-TEST_CASE("SQLiteIndex_AddManifestWithDependencies_EmptyManifestVersion", "[sqliteindex][V1_4]")
+TEST_CASE("SQLiteIndex_AddUpdateRemoveManifestWithDependencies_EmptyManifestVersion", "[sqliteindex][V1_4]")
 {
     TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
     INFO("Using temporary file named: " << tempFile.GetPath());
@@ -507,6 +567,8 @@ TEST_CASE("SQLiteIndex_AddManifestWithDependencies_EmptyManifestVersion", "[sqli
     manifest.Installers[0].Dependencies.Add(Dependency(DependencyType::Package, dependencyManifest2.Id));
 
     index.AddManifest(manifest, GetPathFromManifest(manifest));
+    index.UpdateManifest(manifest, GetPathFromManifest(manifest));
+    index.RemoveManifest(manifest);
 }
 
 TEST_CASE("SQLiteIndex_DependenciesTable_CheckConsistency", "[sqliteindex][V1_4]")
@@ -549,9 +611,57 @@ TEST_CASE("SQLiteIndex_DependenciesTable_CheckConsistency", "[sqliteindex][V1_4]
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         REQUIRE(!index.CheckConsistency(true));
+    }
+
+    TempFile tempFile2{ "repolibtest_tempdb"s, ".db"s };
+    INFO("Using temporary file named: " << tempFile2.GetPath());
+
+    {
+        SQLiteIndex index = CreateTestIndex(tempFile2, Schema::Version::Latest());
+
+        Manifest manifest;
+        manifest.Id = "Foo";
+        manifest.Version = "10.0";
+
+        index.AddManifest(manifest, "path");
+
+        REQUIRE(index.CheckConsistency(true));
+
+        // Add dependency that does not require min version
+        Manifest manifestWithDependency1;
+        manifestWithDependency1.Id = "Bar1";
+        manifestWithDependency1.Version = "10.0";
+        manifestWithDependency1.Installers.push_back({});
+        manifestWithDependency1.Installers[0].Dependencies.Add(Dependency(DependencyType::Package, manifest.Id));
+
+        index.AddManifest(manifestWithDependency1, "path1");
+
+        REQUIRE(index.CheckConsistency(true));
+
+        // Add dependency with min version satisfied
+        Manifest manifestWithDependency2;
+        manifestWithDependency2.Id = "Bar2";
+        manifestWithDependency2.Version = "10.0";
+        manifestWithDependency2.Installers.push_back({});
+        manifestWithDependency2.Installers[0].Dependencies.Add(Dependency(DependencyType::Package, manifest.Id, "1.0"));
+
+        index.AddManifest(manifestWithDependency2, "path2");
+
+        REQUIRE(index.CheckConsistency(true));
+
+        // Add dependency with min version not satisfied
+        Manifest manifestWithDependency3;
+        manifestWithDependency3.Id = "Bar3";
+        manifestWithDependency3.Version = "10.0";
+        manifestWithDependency3.Installers.push_back({});
+        manifestWithDependency3.Installers[0].Dependencies.Add(Dependency(DependencyType::Package, manifest.Id, "11.0"));
+
+        index.AddManifest(manifestWithDependency3, "path3");
+
+        REQUIRE_FALSE(index.CheckConsistency(true));
     }
 }
 
@@ -619,7 +729,7 @@ TEST_CASE("SQLiteIndex_RemoveManifest", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         // Now remove manifest2
         index.RemoveManifest(manifest2, manifest2Path);
@@ -916,8 +1026,6 @@ TEST_CASE("SQLiteIndex_RemoveManifest_EnsureConsistentRowId", "[sqliteindex]")
     // Checking consistency will also uncover issues, but not potentially the same ones as below.
     REQUIRE(index.CheckConsistency(true));
 
-    
-
     // Repeat search to ensure consistent ids
     result = index.Search(request);
     REQUIRE(result.Matches.size() == 1);
@@ -1005,7 +1113,7 @@ TEST_CASE("SQLiteIndex_UpdateManifest", "[sqliteindex][V1_4]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         // Update with no updates should return false
         REQUIRE(!index.UpdateManifest(manifest, manifestPath));
@@ -1041,7 +1149,7 @@ TEST_CASE("SQLiteIndex_UpdateManifest", "[sqliteindex][V1_4]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         // Now remove manifest2
         index.RemoveManifest(manifest, manifestPath);
@@ -1159,7 +1267,7 @@ TEST_CASE("SQLiteIndex_UpdateManifestChangePath", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         manifestPath = "test/newid/test.newid-1.0.0.yaml";
 
@@ -1183,7 +1291,7 @@ TEST_CASE("SQLiteIndex_UpdateManifestChangePath", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         // Now remove manifest, with unknown path
         index.RemoveManifest(manifest, "");
@@ -1240,7 +1348,7 @@ TEST_CASE("SQLiteIndex_UpdateManifest_Pathless", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         // Update with no updates should return false
         REQUIRE(!index.UpdateManifest(manifest));
@@ -1276,7 +1384,7 @@ TEST_CASE("SQLiteIndex_UpdateManifest_Pathless", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         // Now remove manifest2
         index.RemoveManifest(manifest);
@@ -1318,7 +1426,7 @@ TEST_CASE("SQLiteIndex_UpdateManifestChangeCase", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         manifest.Id = "Test.Id";
 
@@ -1327,7 +1435,7 @@ TEST_CASE("SQLiteIndex_UpdateManifestChangeCase", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         manifest.Version = "1.0.0-Test";
 
@@ -1336,7 +1444,7 @@ TEST_CASE("SQLiteIndex_UpdateManifestChangeCase", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         manifest.Channel = "Test";
 
@@ -1345,7 +1453,7 @@ TEST_CASE("SQLiteIndex_UpdateManifestChangeCase", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         manifest.DefaultLocalization.Add<Localization::PackageName>("test name");
 
@@ -1354,7 +1462,7 @@ TEST_CASE("SQLiteIndex_UpdateManifestChangeCase", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         // Now remove manifest, with unknown path
         index.RemoveManifest(manifest, "");
@@ -1405,7 +1513,7 @@ TEST_CASE("SQLiteIndex_IdCaseInsensitivity", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         index.AddManifest(manifest2, manifest2Path);
 
@@ -1415,7 +1523,7 @@ TEST_CASE("SQLiteIndex_IdCaseInsensitivity", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         manifest1.Id = "TEST.ID";
 
@@ -1427,7 +1535,7 @@ TEST_CASE("SQLiteIndex_IdCaseInsensitivity", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         index.RemoveManifest(manifest1, manifest1Path);
 
@@ -1437,7 +1545,7 @@ TEST_CASE("SQLiteIndex_IdCaseInsensitivity", "[sqliteindex][V1_0]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         index.RemoveManifest(manifest2, manifest2Path);
 
@@ -2540,7 +2648,7 @@ TEST_CASE("SQLiteIndex_CheckConsistency_Failure", "[sqliteindex][V1_1]")
     }
 
     {
-        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteIndex::OpenDisposition::ReadWrite);
+        SQLiteIndex index = SQLiteIndex::Open(tempFile, SQLiteStorageBase::OpenDisposition::ReadWrite);
 
         REQUIRE(!index.CheckConsistency(true));
     }
@@ -2738,6 +2846,37 @@ TEST_CASE("SQLiteIndex_NormNameAndPublisher_Complex", "[sqliteindex]")
     }
 }
 
+TEST_CASE("SQLiteIndex_NormNameAndPublisher_AppsAndFeatures", "[sqliteindex]")
+{
+    TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
+    INFO("Using temporary file named: " << tempFile.GetPath());
+
+    std::string testName = "Name";
+    std::string testPublisher = "Publisher";
+    std::string arpTestName = "Other Thing";
+    std::string arpTestPublisher = "Big Company Name";
+
+    SQLiteIndex index = SearchTestSetup(tempFile, {
+        { "Id1", testName, testPublisher, "Moniker", "Version", "Channel", { "Tag" }, { "Command" }, "Path1", {}, { "PC1", "PC2" }, arpTestName, arpTestPublisher },
+        });
+
+    Schema::Version testVersion = TestPrepareForRead(index);
+
+    SearchRequest request;
+    request.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::NormalizedNameAndPublisher, MatchType::Exact, arpTestName, arpTestPublisher));
+
+    auto results = index.Search(request);
+
+    if (AreNormalizedNameAndPublisherSupported(index, testVersion))
+    {
+        REQUIRE(results.Matches.size() == 1);
+    }
+    else
+    {
+        REQUIRE(results.Matches.empty());
+    }
+}
+
 TEST_CASE("SQLiteIndex_ManifestHash_Present", "[sqliteindex]")
 {
     TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
@@ -2794,4 +2933,257 @@ TEST_CASE("SQLiteIndex_ManifestHash_Missing", "[sqliteindex]")
     auto hashResult = index.GetPropertyByManifestId(results.Matches[0].first, PackageVersionProperty::ManifestSHA256Hash);
 
     REQUIRE(!hashResult);
+}
+
+TEST_CASE("SQLiteIndex_ManifestArpVersion_Present_Add", "[sqliteindex]")
+{
+    TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
+    INFO("Using temporary file named: " << tempFile.GetPath());
+
+    SQLiteIndex index = CreateTestIndex(tempFile);
+
+    Manifest manifest;
+    manifest.Id = "Foo";
+    manifest.Version = "Bar";
+    manifest.Installers.push_back({});
+    manifest.Installers[0].BaseInstallerType = InstallerTypeEnum::Exe;
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[0].DisplayVersion = "1.0";
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[1].DisplayVersion = "1.1";
+    
+    index.AddManifest(manifest, "path");
+
+    Schema::Version testVersion = TestPrepareForRead(index);
+
+    auto results = index.Search({});
+    REQUIRE(results.Matches.size() == 1);
+
+    auto arpMin = index.GetPropertyByManifestId(results.Matches[0].first, PackageVersionProperty::ArpMinVersion);
+    auto arpMax = index.GetPropertyByManifestId(results.Matches[0].first, PackageVersionProperty::ArpMaxVersion);
+
+    if (AreArpVersionsSupported(index, testVersion))
+    {
+        REQUIRE(arpMin);
+        REQUIRE(arpMin.value() == "1.0");
+        REQUIRE(arpMax);
+        REQUIRE(arpMax.value() == "1.1");
+    }
+    else
+    {
+        REQUIRE_FALSE(arpMin);
+        REQUIRE_FALSE(arpMax);
+    }
+}
+
+TEST_CASE("SQLiteIndex_ManifestArpVersion_Present_AddThenUpdate", "[sqliteindex]")
+{
+    TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
+    INFO("Using temporary file named: " << tempFile.GetPath());
+
+    SQLiteIndex index = CreateTestIndex(tempFile);
+
+    Manifest manifest;
+    manifest.Id = "Foo";
+    manifest.Version = "Bar";
+    manifest.Installers.push_back({});
+    manifest.Installers[0].BaseInstallerType = InstallerTypeEnum::Exe;
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[0].DisplayVersion = "1.0";
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[1].DisplayVersion = "1.1";
+
+    index.AddManifest(manifest, "path");
+
+    manifest.Installers[0].AppsAndFeaturesEntries[0].DisplayVersion = "1.1";
+
+    index.UpdateManifest(manifest, "path");
+
+    Schema::Version testVersion = TestPrepareForRead(index);
+
+    auto results = index.Search({});
+    REQUIRE(results.Matches.size() == 1);
+
+    auto arpMin = index.GetPropertyByManifestId(results.Matches[0].first, PackageVersionProperty::ArpMinVersion);
+    auto arpMax = index.GetPropertyByManifestId(results.Matches[0].first, PackageVersionProperty::ArpMaxVersion);
+
+    if (AreArpVersionsSupported(index, testVersion))
+    {
+        REQUIRE(arpMin);
+        REQUIRE(arpMin.value() == "1.1");
+        REQUIRE(arpMax);
+        REQUIRE(arpMax.value() == "1.1");
+    }
+    else
+    {
+        REQUIRE_FALSE(arpMin);
+        REQUIRE_FALSE(arpMax);
+    }
+}
+
+TEST_CASE("SQLiteIndex_ManifestArpVersion_Empty", "[sqliteindex]")
+{
+    TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
+    INFO("Using temporary file named: " << tempFile.GetPath());
+
+    SQLiteIndex index = CreateTestIndex(tempFile);
+
+    Manifest manifest;
+    manifest.Id = "Foo";
+    manifest.Version = "Bar";
+    index.AddManifest(manifest, "path");
+
+    Schema::Version testVersion = TestPrepareForRead(index);
+
+    auto results = index.Search({});
+    REQUIRE(results.Matches.size() == 1);
+
+    auto arpMin = index.GetPropertyByManifestId(results.Matches[0].first, PackageVersionProperty::ArpMinVersion);
+    auto arpMax = index.GetPropertyByManifestId(results.Matches[0].first, PackageVersionProperty::ArpMaxVersion);
+
+    if (AreArpVersionsSupported(index, testVersion))
+    {
+        REQUIRE(arpMin);
+        REQUIRE(arpMin.value() == "");
+        REQUIRE(arpMax);
+        REQUIRE(arpMax.value() == "");
+    }
+    else
+    {
+        REQUIRE_FALSE(arpMin);
+        REQUIRE_FALSE(arpMax);
+    }
+}
+
+TEST_CASE("SQLiteIndex_RemoveManifestArpVersionKeepUsedDeleteUnused", "[sqliteindex]")
+{
+    TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
+    INFO("Using temporary file named: " << tempFile.GetPath());
+
+    SQLiteIndex index = CreateTestIndex(tempFile, Schema::Version::Latest());
+
+    Manifest manifest;
+    manifest.Id = "Foo";
+    manifest.Version = "10.0";
+    manifest.Installers.push_back({});
+    manifest.Installers[0].BaseInstallerType = InstallerTypeEnum::Exe;
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[0].DisplayVersion = "1.0";
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[1].DisplayVersion = "1.1";
+
+    index.AddManifest(manifest, "path");
+
+    Manifest manifest2;
+    manifest2.Id = "Foo2";
+    manifest2.Version = "1.0";
+    manifest2.Installers.push_back({});
+    manifest2.Installers[0].BaseInstallerType = InstallerTypeEnum::Exe;
+    manifest2.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest2.Installers[0].AppsAndFeaturesEntries[0].DisplayVersion = "10.0";
+
+    index.AddManifest(manifest2, "path2");
+
+    // Before removing, "10.0", "1.0" and "1.1" should all exist.
+    {
+        Connection connection = Connection::Create(tempFile, Connection::OpenDisposition::ReadOnly);
+        REQUIRE(Schema::V1_0::VersionTable::SelectIdByValue(connection, "10.0").has_value());
+        REQUIRE(Schema::V1_0::VersionTable::SelectIdByValue(connection, "1.0").has_value());
+        REQUIRE(Schema::V1_0::VersionTable::SelectIdByValue(connection, "1.1").has_value());
+    }
+
+    index.RemoveManifest(manifest);
+
+    // After removing the first manifest, "10.0" and "1.0" should still stay, "1.1" should be removed.
+    {
+        Connection connection = Connection::Create(tempFile, Connection::OpenDisposition::ReadOnly);
+        REQUIRE(Schema::V1_0::VersionTable::SelectIdByValue(connection, "10.0").has_value());
+        REQUIRE(Schema::V1_0::VersionTable::SelectIdByValue(connection, "1.0").has_value());
+        REQUIRE_FALSE(Schema::V1_0::VersionTable::SelectIdByValue(connection, "1.1").has_value());
+    }
+}
+
+TEST_CASE("SQLiteIndex_ManifestArpVersion_CheckConsistency", "[sqliteindex]")
+{
+    TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
+    INFO("Using temporary file named: " << tempFile.GetPath());
+
+    SQLiteIndex index = CreateTestIndex(tempFile, Schema::Version::Latest());
+
+    Manifest manifest;
+    manifest.Id = "Foo";
+    manifest.Version = "10.0";
+    manifest.DefaultLocalization.Add<Localization::PackageName>("ArpVersionCheckConsistencyTest");
+    manifest.Moniker = "testmoniker";
+    manifest.Installers.push_back({});
+    manifest.Installers[0].BaseInstallerType = InstallerTypeEnum::Exe;
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[0].DisplayVersion = "1.0";
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[1].DisplayVersion = "1.1";
+
+    index.AddManifest(manifest, "path");
+
+    REQUIRE(index.CheckConsistency(true));
+
+    // Add a conflicting one
+    manifest.Version = "10.1";
+
+    index.AddManifest(manifest, "path2");
+
+    REQUIRE_FALSE(index.CheckConsistency(true));
+}
+
+TEST_CASE("SQLiteIndex_ManifestArpVersion_ValidateManifestAgainstIndex", "[sqliteindex]")
+{
+    TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
+    INFO("Using temporary file named: " << tempFile.GetPath());
+
+    SQLiteIndex index = CreateTestIndex(tempFile, Schema::Version::Latest());
+
+    Manifest manifest;
+    manifest.Id = "Foo";
+    manifest.Version = "10.0";
+    manifest.Installers.push_back({});
+    manifest.Installers[0].BaseInstallerType = InstallerTypeEnum::Exe;
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[0].DisplayVersion = "1.0";
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[1].DisplayVersion = "1.1";
+
+    index.AddManifest(manifest, "path");
+
+    // Updating same version should not result in failure.
+    REQUIRE_NOTHROW(ValidateManifestArpVersion(&index, manifest));
+
+    // Add different version should result in failure.
+    manifest.Version = "10.1";
+    REQUIRE_THROWS(ValidateManifestArpVersion(&index, manifest));
+}
+
+TEST_CASE("SQLiteIndex_CheckConsistency_FindEmbeddedNull", "[sqliteindex]")
+{
+    TempFile tempFile{ "repolibtest_tempdb"s, ".db"s };
+    INFO("Using temporary file named: " << tempFile.GetPath());
+
+    SQLiteIndex index = CreateTestIndex(tempFile, Schema::Version::Latest());
+
+    Manifest manifest;
+    manifest.Id = "Foo";
+    manifest.Version = "10.0";
+    manifest.Installers.push_back({});
+    manifest.Installers[0].BaseInstallerType = InstallerTypeEnum::Exe;
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[0].DisplayVersion = "1.0";
+    manifest.Installers[0].AppsAndFeaturesEntries.push_back({});
+    manifest.Installers[0].AppsAndFeaturesEntries[1].DisplayVersion = "1.1";
+
+    index.AddManifest(manifest, "path");
+
+    // Inject a null character using SQL without binding since we block it
+    Connection connection = Connection::Create(tempFile, Connection::OpenDisposition::ReadWrite);
+    Statement update = Statement::Create(connection, "Update versions set version = '10.0'||char(0)||'After Null' where version = '10.0'");
+    update.Execute();
+
+    REQUIRE(!index.CheckConsistency(true));
 }

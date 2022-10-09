@@ -26,11 +26,12 @@ namespace AppInstaller::CLI
 
     Command::Command(
         std::string_view name,
+        std::vector<std::string_view> aliases,
         std::string_view parent,
         Command::Visibility visibility,
         Settings::ExperimentalFeature::Feature feature,
         Settings::TogglePolicy::Policy groupPolicy) :
-        m_name(name), m_visibility(visibility), m_feature(feature), m_groupPolicy(groupPolicy)
+        m_name(name), m_aliases(std::move(aliases)), m_visibility(visibility), m_feature(feature), m_groupPolicy(groupPolicy)
     {
         if (!parent.empty())
         {
@@ -115,6 +116,7 @@ namespace AppInstaller::CLI
         // Output the command preamble and command chain
         infoOut << Resource::String::Usage << ": winget"_liv << Utility::LocIndView{ commandChain };
 
+        auto commandAliases = Aliases();
         auto commands = GetVisibleCommands();
         auto arguments = GetVisibleArguments();
 
@@ -183,6 +185,17 @@ namespace AppInstaller::CLI
             std::endl <<
             std::endl;
 
+        if (!commandAliases.empty())
+        {
+            infoOut << Resource::String::AvailableCommandAliases << std::endl;
+            
+            for (const auto& commandAlias : commandAliases)
+            {
+                infoOut << "  "_liv << Execution::HelpCommandEmphasis << commandAlias << std::endl;
+            }
+            infoOut << std::endl;
+        }
+
         if (!commands.empty())
         {
             if (Name() == FullName())
@@ -223,14 +236,7 @@ namespace AppInstaller::CLI
             size_t maxArgNameLength = 0;
             for (const auto& arg : arguments)
             {
-                std::ostringstream strstr;
-                if (arg.Alias() != Argument::NoAlias)
-                {
-                    strstr << APPINSTALLER_CLI_ARGUMENT_IDENTIFIER_CHAR << arg.Alias() << ',';
-                }
-                strstr << APPINSTALLER_CLI_ARGUMENT_IDENTIFIER_CHAR << APPINSTALLER_CLI_ARGUMENT_IDENTIFIER_CHAR << arg.Name();
-
-                argNames.emplace_back(strstr.str());
+                argNames.emplace_back(arg.GetUsageString());
                 maxArgNameLength = std::max(maxArgNameLength, argNames.back().length());
             }
 
@@ -298,7 +304,10 @@ namespace AppInstaller::CLI
 
         for (auto& command : commands)
         {
-            if (Utility::CaseInsensitiveEquals(*itr, command->Name()))
+            if (
+                Utility::CaseInsensitiveEquals(*itr, command->Name()) ||
+                Utility::CaseInsensitiveContains(command->Aliases(), *itr)
+            )
             {
                 if (!ExperimentalFeature::IsEnabled(command->Feature()))
                 {
@@ -549,7 +558,8 @@ namespace AppInstaller::CLI
         {
             // This is an arg name, find it and process its value if needed.
             // Skip the double arg identifier chars.
-            std::string_view argName = currArg.substr(2);
+            size_t argStart = currArg.find_first_not_of(APPINSTALLER_CLI_ARGUMENT_IDENTIFIER_CHAR);
+            std::string_view argName = currArg.substr(argStart);
             bool argFound = false;
 
             bool hasValue = false;
@@ -564,7 +574,10 @@ namespace AppInstaller::CLI
 
             for (const auto& arg : m_arguments)
             {
-                if (Utility::CaseInsensitiveEquals(argName, arg.Name()))
+                if (
+                    Utility::CaseInsensitiveEquals(argName, arg.Name()) ||
+                    Utility::CaseInsensitiveEquals(argName, arg.AlternateName())
+                   )
                 {
                     if (arg.Type() == ArgumentType::Flag)
                     {
@@ -630,7 +643,11 @@ namespace AppInstaller::CLI
             return;
         }
 
-        for (const auto& arg : GetArguments())
+        // Common arguments need to be validated with command arguments, as there may be common arguments blocked by Experimental Feature or Group Policy
+        auto allArgs = GetArguments();
+        Argument::GetCommon(allArgs);
+
+        for (const auto& arg : allArgs)
         {
             if (!Settings::GroupPolicies().IsEnabled(arg.GroupPolicy()) && execArgs.Contains(arg.ExecArgType()))
             {
@@ -691,6 +708,28 @@ namespace AppInstaller::CLI
             }
         }
 
+        if (execArgs.Contains(Execution::Args::Type::InstallArchitecture))
+        {
+            Utility::Architecture selectedArch = Utility::ConvertToArchitectureEnum(std::string(execArgs.GetArg(Execution::Args::Type::InstallArchitecture)));
+            if ((selectedArch == Utility::Architecture::Unknown) || (Utility::IsApplicableArchitecture(selectedArch) == Utility::InapplicableArchitecture))
+            {
+                std::vector<Utility::LocIndString> applicableArchitectures;
+                for (Utility::Architecture i : Utility::GetApplicableArchitectures())
+                {
+                    applicableArchitectures.emplace_back(Utility::ToString(i));
+                }
+                throw CommandException(Resource::String::InvalidArgumentValueError, Argument::ForType(Execution::Args::Type::InstallArchitecture).Name(), std::forward<std::vector<Utility::LocIndString>>((applicableArchitectures)));
+            }
+        }
+
+        if (execArgs.Contains(Execution::Args::Type::Locale))
+        {
+            if (!Locale::IsWellFormedBcp47Tag(execArgs.GetArg(Execution::Args::Type::Locale)))
+            {
+                throw CommandException(Resource::String::InvalidArgumentValueErrorWithoutValidValues, Argument::ForType(Execution::Args::Type::Locale).Name(), {});
+            }
+        }
+
         ValidateArgumentsInternal(execArgs);
     }
 
@@ -711,6 +750,17 @@ namespace AppInstaller::CLI
                 if (word.empty() || Utility::CaseInsensitiveStartsWith(command->Name(), word))
                 {
                     context.Reporter.Completion() << command->Name() << std::endl;
+                }
+                // Allow for command aliases to be auto-completed
+                if (!(command->Aliases()).empty() && !word.empty())
+                {
+                    for (const auto& commandAlias : command->Aliases())
+                    {
+                        if (Utility::CaseInsensitiveStartsWith(commandAlias, word))
+                        {
+                            context.Reporter.Completion() << commandAlias << std::endl;
+                        }
+                    }
                 }
             }
         }
@@ -811,6 +861,18 @@ namespace AppInstaller::CLI
         {
             ExecuteInternal(context);
         }
+
+        if (context.Args.Contains(Execution::Args::Type::OpenLogs))
+        {   
+            // TODO: Consider possibly adding functionality that if the context contains 'Execution::Args::Type::Log' to open the path provided for the log
+            // The above was omitted initially as a security precaution to ensure that user input to '--log' wouldn't be passed directly to ShellExecute
+            ShellExecute(NULL, NULL, Runtime::GetPathTo(Runtime::PathName::DefaultLogLocation).wstring().c_str(), NULL, NULL, SW_SHOWNORMAL);
+        }
+
+        if (context.Args.Contains(Execution::Args::Type::Wait))
+        {
+            context.Reporter.PromptForEnter();
+        }
     }
 
     void Command::ValidateArgumentsInternal(Execution::Args&) const
@@ -856,6 +918,7 @@ namespace AppInstaller::CLI
     std::vector<Argument> Command::GetVisibleArguments() const
     {
         auto arguments = GetArguments();
+        Argument::GetCommon(arguments);
 
         arguments.erase(
             std::remove_if(

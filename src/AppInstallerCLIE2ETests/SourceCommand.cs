@@ -7,6 +7,12 @@ namespace AppInstallerCLIE2ETests
 
     public class SourceCommand : BaseCommand
     {
+        [SetUp]
+        public void Setup()
+        {
+            ResetTestSource(false);
+        }
+
         [Test]
         public void SourceAdd()
         {
@@ -94,7 +100,7 @@ namespace AppInstallerCLIE2ETests
             var result = TestCommon.RunAICLICommand("source remove", $"-n {Constants.TestSourceName}");
             Assert.AreEqual(Constants.ErrorCode.S_OK, result.ExitCode);
             Assert.True(result.StdOut.Contains("Done"));
-            ResetTestSource();
+            ResetTestSource(false);
         }
 
         [Test]
@@ -125,10 +131,9 @@ namespace AppInstallerCLIE2ETests
             //Verify sources have been reset
             result = TestCommon.RunAICLICommand("source list", "");
             Assert.True(result.StdOut.Contains("winget"));
-            Assert.True(result.StdOut.Contains("https://winget.azureedge.net/cache"));
+            Assert.True(result.StdOut.Contains("https://cdn.winget.microsoft.com/cache"));
             Assert.False(result.StdOut.Contains(Constants.TestSourceName));
             Assert.False(result.StdOut.Contains(Constants.TestSourceUrl));
-            ResetTestSource();
         }
     }
 }

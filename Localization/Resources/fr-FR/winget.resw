@@ -261,7 +261,7 @@ Elles peuvent être configurées par le biais du fichier de paramètres « wing
   </data>
   <data name="InstallCommandLongDescription" xml:space="preserve">
     <value>Installe le package sélectionné, trouvé en recherchant une source configurée ou directement à partir d'un manifeste. Par défaut, la requête doit correspondre, sans respect de la casse, à l’id, au nom ou au moniker du package. D’autres champs peuvent être utilisés en transmettant leur option appropriée.</value>
-    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated.</comment>
+    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated. The match must be for any of them, with comparison ignoring case.</comment>
   </data>
   <data name="InstallCommandShortDescription" xml:space="preserve">
     <value>Installe le package donné</value>
@@ -472,13 +472,15 @@ Elles peuvent être configurées par le biais du fichier de paramètres « wing
     <value>Ouvrir les paramètres ou définir les paramètres d’administrateur</value>
   </data>
   <data name="SettingsWarnings" xml:space="preserve">
-    <value>Erreur inattendue lors du chargement des paramètres. Veuillez vérifier vos paramètres en exécutant la commande paramètres.</value>
+    <value>Erreur inattendue lors du chargement des paramètres. Vérifiez vos paramètres en exécutant la commande 'settings'.</value>
+    <comment>{Locked="'settings'"}</comment>
   </data>
   <data name="ShowChannel" xml:space="preserve">
     <value>Canal</value>
   </data>
   <data name="ShowCommandLongDescription" xml:space="preserve">
     <value>Affiche des informations sur un package spécifique. Par défaut, la requête doit correspondre de façon non sensible à la casse à l’ID, au nom ou au moniker du package. D’autres champs peuvent être utilisés en passant l’option appropriée.</value>
+    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated. The match must be for any of them, with comparison ignoring case.</comment>
   </data>
   <data name="ShowCommandShortDescription" xml:space="preserve">
     <value>Affiche des informations sur un package</value>
@@ -664,11 +666,11 @@ Elles peuvent être configurées par le biais du fichier de paramètres « wing
     <value>Aucune mise à jour applicable trouvée.</value>
   </data>
   <data name="UpgradeCommandLongDescription" xml:space="preserve">
-    <value>Mises à niveau du paquet sélectionné, trouvé en recherchant les paquets installés ou directement à partir d'un manifeste. Par défaut, la requête doit correspondre, sans respect de la casse, à l’identification, au nom ou au moniker du paquet. D’autres champs peuvent être utilisés en passant leur option appropriée.</value>
-    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated.</comment>
+    <value>Mises à niveau du paquet sélectionné, trouvé en recherchant les paquets installés ou directement à partir d'un manifeste. Par défaut, la requête doit correspondre, sans respect de la casse, à l’identification, au nom ou au moniker du paquet. D’autres champs peuvent être utilisés en passant leur option appropriée. Si aucun argument n'est fourni, affiche les paquets avec des mises à jour disponibles.</value>
+    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated. The match must be for any of them, with comparison ignoring case.</comment>
   </data>
   <data name="UpgradeCommandShortDescription" xml:space="preserve">
-    <value>Met à niveau le package donné</value>
+    <value>Affiche et effectue les mises à niveau disponibles.</value>
   </data>
   <data name="Usage" xml:space="preserve">
     <value>consommation</value>
@@ -721,7 +723,7 @@ Elles peuvent être configurées par le biais du fichier de paramètres « wing
     <value>Le fichier n'existe pas :</value>
   </data>
   <data name="BothManifestAndSearchQueryProvided" xml:space="preserve">
-    <value>Les arguments manifeste et requête de recherche locaux sont tous deux spécifiés</value>
+    <value>Les arguments manifeste et requête de recherche locaux sont tous deux fournis</value>
   </data>
   <data name="Logs" xml:space="preserve">
     <value>Journaux</value>
@@ -741,6 +743,7 @@ Elles peuvent être configurées par le biais du fichier de paramètres « wing
   </data>
   <data name="UninstallCommandLongDescription" xml:space="preserve">
     <value>Désinstalle le package sélectionné, que vous avez trouvé en effectuant une recherche dans la liste des packages installés ou directement à partir d’un manifeste. Par défaut, la requête doit correspondre de façon non sensible à la casse à l’ID, au nom ou au moniker du package. D’autres champs peuvent être utilisés en passant l’option appropriée.</value>
+    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated. The match must be for any of them, with comparison ignoring case.</comment>
   </data>
   <data name="UninstallCommandShortDescription" xml:space="preserve">
     <value>Désinstallation du paquet donné</value>
@@ -1218,10 +1221,11 @@ Acceptez-vous les conditions ?</value>
   <data name="SearchFailureErrorListMatches" xml:space="preserve">
     <value>Les packages suivants ont été trouvés parmi les sources de travail.
 Spécifiez l’un d’entre eux à l’aide de l’option '--source' pour continuer.</value>
-    <comment>{Locked="--source"}</comment>
+    <comment>{Locked="--source"} "working sources" as in "sources that are working correctly"</comment>
   </data>
   <data name="SearchFailureErrorNoMatches" xml:space="preserve">
     <value>Aucun package n’a été trouvé parmi les sources de travail.</value>
+    <comment>"working sources" as in "sources that are working correctly"</comment>
   </data>
   <data name="FeaturesMessageDisabledByBuild" xml:space="preserve">
     <value>Il s’agit d’une version stable du Gestionnaire de package Windows. Si vous voulez essayer des fonctionnalités expérimentales, installez une version préliminaire. Des instructions sont disponibles sur GitHub : https://github.com/microsoft/winget-cli.</value>
@@ -1249,5 +1253,100 @@ Spécifiez l’un d’entre eux à l’aide de l’option '--source' pour contin
   </data>
   <data name="InstallArchitectureArgumentDescription" xml:space="preserve">
     <value>Sélectionner l’architecture à installer</value>
+  </data>
+  <data name="IncludeUnknownArgumentDescription" xml:space="preserve">
+    <value>Mettre à niveau les packages même si leur version actuelle ne peut pas être déterminée</value>
+  </data>
+  <data name="UpgradeUnknownVersionExplanation" xml:space="preserve">
+    <value>Impossible de déterminer le numéro de version de ce package. Pour le mettre à niveau quand même, ajoutez l’argument --include-unknown à votre commande précédente.</value>
+    <comment>{Locked="--include-unknown"}</comment>
+  </data>
+  <data name="UpgradeUnknownCount" xml:space="preserve">
+    <value>les packages ont un numéro de version qui ne peut pas être déterminé. L’utilisation de « --include-unknown » peut afficher plus de résultats.</value>
+    <comment>{Locked="--include-unknown"} This string is preceded by a (integer) number of packages that do not have notated versions. </comment>
+  </data>
+  <data name="UpgradeUnknownCountSingle" xml:space="preserve">
+    <value>le package a un numéro de version qui ne peut pas être déterminé. L’utilisation de « --include-unknown » peut afficher plus de résultats.</value>
+    <comment>{Locked="--include-unknown"} This string is preceded by a (integer) number of packages that do not have notated versions.</comment>
+  </data>
+  <data name="InvalidArgumentWithoutQueryError" xml:space="preserve">
+    <value>Les arguments fournis ne peuvent être utilisés qu’avec une requête.</value>
+  </data>
+  <data name="SystemArchitecture" xml:space="preserve">
+    <value>Architecture du système</value>
+  </data>
+  <data name="PreserveArgumentDescription" xml:space="preserve">
+    <value>Conserve tous les fichiers et répertoires créés par le package (portables)</value>
+  </data>
+  <data name="PurgeArgumentDescription" xml:space="preserve">
+    <value>Supprimer tous les fichiers et répertoires du répertoire du package (portable)</value>
+  </data>
+  <data name="RenameArgumentDescription" xml:space="preserve">
+    <value>Valeur pour renommer le fichier exécutable (portable)</value>
+  </data>
+  <data name="WaitArgumentDescription" xml:space="preserve">
+    <value>Invite l’utilisateur à appuyer sur une touche avant de quitter</value>
+  </data>
+  <data name="InstallerElevationExpected" xml:space="preserve">
+    <value>Le programme d’installation demande à s’exécuter en tant qu’administrateur. Attendez-vous à une invite.</value>
+  </data>
+  <data name="InstallerProhibitsElevation" xml:space="preserve">
+    <value>Le programme d’installation ne peut pas être exécuté à partir d’un contexte d’administrateur.</value>
+  </data>
+  <data name="ModifiedPathRequiresShellRestart" xml:space="preserve">
+    <value>Variable d’environnement de chemin modifiée ; redémarrez votre interpréteur de commandes pour utiliser la nouvelle valeur.</value>
+  </data>
+  <data name="ProductCodeArgumentDescription" xml:space="preserve">
+    <value>Filtres à l’aide du code de produit</value>
+  </data>
+  <data name="PortableRegistryCollisionOverridden" xml:space="preserve">
+    <value>Un package portable portant le même nom mais provenant d’une source différente existe déjà ; poursuite en raison de --force</value>
+  </data>
+  <data name="ReparsePointsNotSupportedError" xml:space="preserve">
+    <value>Le volume ne prend pas en charge les points d’analyse</value>
+  </data>
+  <data name="ReservedFilenameError" xml:space="preserve">
+    <value>Le nom de fichier spécifié n’est pas un nom de fichier valide</value>
+  </data>
+  <data name="OverwritingExistingFileAtMessage" xml:space="preserve">
+    <value>Remplacement du fichier existant :</value>
+  </data>
+  <data name="NoPackageSelectionArgumentProvided" xml:space="preserve">
+    <value>Aucun argument de sélection de package n’a été fourni ; consultez l’aide pour plus d’informations sur la recherche d’un package.</value>
+  </data>
+  <data name="PortableInstallFailed" xml:space="preserve">
+    <value>Échec de l’installation portable ; Nettoyage en cours...</value>
+  </data>
+  <data name="BothPurgeAndPreserveFlagsProvided" xml:space="preserve">
+    <value>Les arguments 'purger' et 'préserver' sont fournis</value>
+  </data>
+  <data name="PortableHashMismatchOverridden" xml:space="preserve">
+    <value>L’exe portable a été modifié ; continuer en raison de --force</value>
+    <comment>{Locked="--force"}</comment>
+  </data>
+  <data name="PortableHashMismatchOverrideRequired" xml:space="preserve">
+    <value>Impossible de supprimer l’exe portable, car il a été modifié ; pour remplacer cette vérification, utilisez : --force</value>
+    <comment>{Locked="--force"}</comment>
+  </data>
+  <data name="FilesRemainInInstallDirectory" xml:space="preserve">
+    <value>Les fichiers restent dans le répertoire d’installation :</value>
+  </data>
+  <data name="PurgeInstallDirectory" xml:space="preserve">
+    <value>Purge du répertoire d’installation...</value>
+  </data>
+  <data name="UnableToPurgeInstallDirectory" xml:space="preserve">
+    <value>Impossible de vider le répertoire d’installation, car il n’a pas été créé par WinGet</value>
+  </data>
+  <data name="RelatedLink" xml:space="preserve">
+    <value>Lien associé</value>
+  </data>
+  <data name="ShowLabelDocumentation" xml:space="preserve">
+    <value>Documentation :</value>
+  </data>
+  <data name="Notes" xml:space="preserve">
+    <value>Remarques :</value>
+  </data>
+  <data name="ShowLabelInstallationNotes" xml:space="preserve">
+    <value>Notes d’installation :</value>
   </data>
 </root>

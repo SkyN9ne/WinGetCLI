@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 #pragma once
+#include <hstring.h>
 
 extern "C"
 {
@@ -23,4 +24,19 @@ extern "C"
 
     // Unregisters the server module class factories.
     WINDOWS_PACKAGE_MANAGER_API WindowsPackageManagerServerModuleUnregister();
+
+    // Creates module for in-proc COM invocation.
+    WINDOWS_PACKAGE_MANAGER_API WindowsPackageManagerInProcModuleInitialize();
+
+    // Try to terminate the module for in-proc COM. Returns false if there's still active objects.
+    bool WINDOWS_PACKAGE_MANAGER_API_CALLING_CONVENTION WindowsPackageManagerInProcModuleTerminate();
+
+    // DllGetClassObject for in-proc COM for cpp winrt runtime classes.
+    WINDOWS_PACKAGE_MANAGER_API WindowsPackageManagerInProcModuleGetClassObject(
+        REFCLSID rclsid,
+        REFIID riid,
+        LPVOID* ppv);
+
+    // DllGetActivationFactory for in-proc cpp winrt runtime classes.
+    WINDOWS_PACKAGE_MANAGER_API WindowsPackageManagerInProcModuleGetActivationFactory(HSTRING classId, void** factory);
 }

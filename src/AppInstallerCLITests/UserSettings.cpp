@@ -5,6 +5,7 @@
 #include "TestSettings.h"
 #include <AppInstallerRuntime.h>
 #include <winget/Settings.h>
+#include "AppInstallerLogging.h"
 
 #include <AppInstallerErrors.h>
 
@@ -13,6 +14,7 @@
 #include <chrono>
 
 using namespace AppInstaller::Settings;
+using namespace AppInstaller::Logging;
 using namespace AppInstaller::Runtime;
 using namespace TestCommon;
 using namespace std::string_literals;
@@ -202,6 +204,82 @@ TEST_CASE("SettingProgressBar", "[settings]")
     }
 }
 
+TEST_CASE("SettingLoggingLevelPreference", "[settings]")
+{
+    DeleteUserSettingsFiles();
+
+    SECTION("Default value")
+    {
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingLevelPreference>() == Level::Info);
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+    SECTION("Info")
+    {
+        std::string_view json = R"({ "logging": { "level": "info" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingLevelPreference>() == Level::Info);
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+    SECTION("Verbose")
+    {
+        std::string_view json = R"({ "logging": { "level": "verbose" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingLevelPreference>() == Level::Verbose);
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+    SECTION("Warning")
+    {
+        std::string_view json = R"({ "logging": { "level": "warning" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingLevelPreference>() == Level::Warning);
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+    SECTION("Error")
+    {
+        std::string_view json = R"({ "logging": { "level": "error" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingLevelPreference>() == Level::Error);
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+    SECTION("Critical")
+    {
+        std::string_view json = R"({ "logging": { "level": "critical" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingLevelPreference>() == Level::Crit);
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+    SECTION("Bad value")
+    {
+        std::string_view json = R"({ "logging": { "level": "fake" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingLevelPreference>() == Level::Info);
+        REQUIRE(userSettingTest.GetWarnings().size() == 1);
+    }
+    SECTION("Bad value type")
+    {
+        std::string_view json = R"({ "logging": { "level": 5 } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::LoggingLevelPreference>() == Level::Info);
+        REQUIRE(userSettingTest.GetWarnings().size() == 1);
+    }
+}
+
 TEST_CASE("SettingAutoUpdateIntervalInMinutes", "[settings]")
 {
     DeleteUserSettingsFiles();
@@ -332,6 +410,54 @@ TEST_CASE("SettingsExperimentalCmd", "[settings]")
         // Experimental features group policy is applied at the ExperimentalFeature level,
         // so it doesn't affect the settings.
         REQUIRE(userSettingTest.Get<Setting::EFExperimentalCmd>());
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+}
+
+TEST_CASE("SettingsPortablePackageUserRoot", "[settings]")
+{
+    SECTION("Relative path")
+    {
+        DeleteUserSettingsFiles();
+        std::string_view json = R"({ "installBehavior": { "portablePackageUserRoot": %LOCALAPPDATA%/Portable/Root } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+        
+        REQUIRE(userSettingTest.Get<Setting::PortablePackageUserRoot>().empty());
+        REQUIRE(userSettingTest.GetWarnings().size() == 1);
+    }
+    SECTION("Valid path")
+    {
+        DeleteUserSettingsFiles();
+        std::string_view json = R"({ "installBehavior": { "portablePackageUserRoot": "C:/Foo/Bar" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::PortablePackageUserRoot>() == "C:/Foo/Bar");
+        REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+}
+
+TEST_CASE("SettingsPortablePackageMachineRoot", "[settings]")
+{
+    SECTION("Relative path")
+    {
+        DeleteUserSettingsFiles();
+        std::string_view json = R"({ "installBehavior": { "portablePackageMachineRoot": %LOCALAPPDATA%/Portable/Root } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::PortablePackageMachineRoot>().empty());
+        REQUIRE(userSettingTest.GetWarnings().size() == 1);
+    }
+    SECTION("Valid path")
+    {
+        DeleteUserSettingsFiles();
+        std::string_view json = R"({ "installBehavior": { "portablePackageMachineRoot": "C:/Foo/Bar" } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::PortablePackageMachineRoot>() == "C:/Foo/Bar");
         REQUIRE(userSettingTest.GetWarnings().size() == 0);
     }
 }

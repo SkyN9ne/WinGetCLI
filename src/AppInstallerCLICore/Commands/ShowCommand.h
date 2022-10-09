@@ -7,7 +7,7 @@ namespace AppInstaller::CLI
 {
     struct ShowCommand final : public Command
     {
-        ShowCommand(std::string_view parent) : Command("show", parent) {}
+        ShowCommand(std::string_view parent) : Command("show", { "view" }, parent) {}
 
         std::vector<Argument> GetArguments() const override;
 
@@ -19,6 +19,7 @@ namespace AppInstaller::CLI
         std::string HelpLink() const override;
 
     protected:
+        void ValidateArgumentsInternal(Execution::Args& execArgs) const override;
         void ExecuteInternal(AppInstaller::CLI::Execution::Context& context) const override;
     };
 }

@@ -261,7 +261,7 @@
   </data>
   <data name="InstallCommandLongDescription" xml:space="preserve">
     <value>Устанавливает выбранный пакет, обнаруженный либо путем поиска в настроенном источнике, либо непосредственно из манифеста. По умолчанию запрос должен сравнить идентификатор, имя или моникер пакета (без учета регистра). Можно использовать и другие поля, указав соответствующий параметр.</value>
-    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated.</comment>
+    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated. The match must be for any of them, with comparison ignoring case.</comment>
   </data>
   <data name="InstallCommandShortDescription" xml:space="preserve">
     <value>Установка указанного пакета</value>
@@ -472,13 +472,15 @@
     <value>Открыть параметры или настроить параметры администратора</value>
   </data>
   <data name="SettingsWarnings" xml:space="preserve">
-    <value>Непредвиденная ошибка при загрузке параметров. Проверьте параметры, выполнив команду "Параметры".</value>
+    <value>Непредвиденная ошибка при загрузке параметров. Проверьте параметры, выполнив команду 'settings'.</value>
+    <comment>{Locked="'settings'"}</comment>
   </data>
   <data name="ShowChannel" xml:space="preserve">
     <value>Канал</value>
   </data>
   <data name="ShowCommandLongDescription" xml:space="preserve">
     <value>Отображает сведения о конкретном пакете. По умолчанию запрос должен сравнить идентификатор, имя или моникер пакета (без учета регистра). Можно использовать и другие поля, указав соответствующий параметр.</value>
+    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated. The match must be for any of them, with comparison ignoring case.</comment>
   </data>
   <data name="ShowCommandShortDescription" xml:space="preserve">
     <value>Показывает сведения о пакете</value>
@@ -664,11 +666,11 @@
     <value>Применимые обновления не найдены.</value>
   </data>
   <data name="UpgradeCommandLongDescription" xml:space="preserve">
-    <value>Обновление выбранного пакета, обнаруженного путем поиска в списке установленных пакетов либо непосредственно из манифеста. По умолчанию запрос должен соответствовать идентификатору, имени или моникеру пакета (без учета регистра). Можно использовать и другие поля, указав соответствующий параметр.</value>
-    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated.</comment>
+    <value>Обновляет выбранный пакет, обнаруженный путем поиска в списке установленных пакетов или непосредственно из манифеста приложения. По умолчанию запрос должен соответствовать идентификатору, имени или пути ссылки пакета (без учета регистра). Можно использовать и другие поля, указав соответствующий параметр. Если аргументы не указаны, показывает пакеты с доступными обновлениями</value>
+    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated. The match must be for any of them, with comparison ignoring case.</comment>
   </data>
   <data name="UpgradeCommandShortDescription" xml:space="preserve">
-    <value>Обновление указанного пакета</value>
+    <value>Отображает и выполняет доступные обновления</value>
   </data>
   <data name="Usage" xml:space="preserve">
     <value>использование</value>
@@ -721,7 +723,7 @@
     <value>Файл не существует:</value>
   </data>
   <data name="BothManifestAndSearchQueryProvided" xml:space="preserve">
-    <value>Предоставлены аргументы локального манифеста и поискового запроса</value>
+    <value>Предоставляются аргументы и локального манифеста, и поискового запроса</value>
   </data>
   <data name="Logs" xml:space="preserve">
     <value>Журналы</value>
@@ -741,6 +743,7 @@
   </data>
   <data name="UninstallCommandLongDescription" xml:space="preserve">
     <value>Удаление выбранного пакета, обнаруженного путем поиска в списке установленных пакетов либо непосредственно из манифеста. По умолчанию запрос должен соответствовать идентификатору, имени или моникеру пакета (без учета регистра). Можно использовать и другие поля, указав соответствующий параметр.</value>
+    <comment>id, name, and moniker are all named values in our context, and may benefit from not being translated. The match must be for any of them, with comparison ignoring case.</comment>
   </data>
   <data name="UninstallCommandShortDescription" xml:space="preserve">
     <value>Удаление указанного пакета</value>
@@ -1218,10 +1221,11 @@
   <data name="SearchFailureErrorListMatches" xml:space="preserve">
     <value>Среди рабочих источников найдены следующие пакеты.
 Чтобы продолжить, укажите один из них, используя параметр "--source".</value>
-    <comment>{Locked="--source"}</comment>
+    <comment>{Locked="--source"} "working sources" as in "sources that are working correctly"</comment>
   </data>
   <data name="SearchFailureErrorNoMatches" xml:space="preserve">
     <value>Пакеты не найдены среди рабочих источников.</value>
+    <comment>"working sources" as in "sources that are working correctly"</comment>
   </data>
   <data name="FeaturesMessageDisabledByBuild" xml:space="preserve">
     <value>Это стабильный выпуск Диспетчера пакетов Windows. Чтобы попробовать экспериментальные функции, установите предварительную сборку. Инструкции доступны в GitHub по ссылке https://github.com/microsoft/winget-cli.</value>
@@ -1249,5 +1253,100 @@
   </data>
   <data name="InstallArchitectureArgumentDescription" xml:space="preserve">
     <value>Выберите архитектуру для установки</value>
+  </data>
+  <data name="IncludeUnknownArgumentDescription" xml:space="preserve">
+    <value>Обновить пакеты, даже если не удается определить их текущую версию</value>
+  </data>
+  <data name="UpgradeUnknownVersionExplanation" xml:space="preserve">
+    <value>Невозможно определить номер версии этого пакета. Чтобы все равно обновить его, добавьте аргумент --include-unknown к предыдущей команде.</value>
+    <comment>{Locked="--include-unknown"}</comment>
+  </data>
+  <data name="UpgradeUnknownCount" xml:space="preserve">
+    <value>Невозможно определить номер версии пакетов. Попробуйте использовать аргумент "--include-unknown" для получения более подробных результатов.</value>
+    <comment>{Locked="--include-unknown"} This string is preceded by a (integer) number of packages that do not have notated versions. </comment>
+  </data>
+  <data name="UpgradeUnknownCountSingle" xml:space="preserve">
+    <value>Невозможно определить номер версии пакета. Попробуйте использовать аргумент "--include-unknown" для получения более подробных результатов.</value>
+    <comment>{Locked="--include-unknown"} This string is preceded by a (integer) number of packages that do not have notated versions.</comment>
+  </data>
+  <data name="InvalidArgumentWithoutQueryError" xml:space="preserve">
+    <value>Указанные аргументы можно использовать только с запросом.</value>
+  </data>
+  <data name="SystemArchitecture" xml:space="preserve">
+    <value>Архитектура системы</value>
+  </data>
+  <data name="PreserveArgumentDescription" xml:space="preserve">
+    <value>Сохраняет все файлы и каталоги, созданные пакетом (переносной)</value>
+  </data>
+  <data name="PurgeArgumentDescription" xml:space="preserve">
+    <value>Удаляет все файлы и каталоги в каталоге пакета (переносной)</value>
+  </data>
+  <data name="RenameArgumentDescription" xml:space="preserve">
+    <value>Значение для переименования исполняемого файла (переносной)</value>
+  </data>
+  <data name="WaitArgumentDescription" xml:space="preserve">
+    <value>Запрашивает нажатие любой клавиши пользователем перед выходом</value>
+  </data>
+  <data name="InstallerElevationExpected" xml:space="preserve">
+    <value>Установщик запросит запуск от имени администратора, ожидайте запроса.</value>
+  </data>
+  <data name="InstallerProhibitsElevation" xml:space="preserve">
+    <value>Не удается запустить установщик из контекста администратора.</value>
+  </data>
+  <data name="ModifiedPathRequiresShellRestart" xml:space="preserve">
+    <value>Переменная среды пути изменена; перезапустите оболочку, чтобы использовать новое значение.</value>
+  </data>
+  <data name="ProductCodeArgumentDescription" xml:space="preserve">
+    <value>Фильтры с использованием кода продукта</value>
+  </data>
+  <data name="PortableRegistryCollisionOverridden" xml:space="preserve">
+    <value>Переносной пакет с таким именем, но из другого источника уже существует; выполняется из-за параметра --force</value>
+  </data>
+  <data name="ReparsePointsNotSupportedError" xml:space="preserve">
+    <value>Том не поддерживает точки повторного анализа</value>
+  </data>
+  <data name="ReservedFilenameError" xml:space="preserve">
+    <value>Указанное имя файла не является допустимым именем файла</value>
+  </data>
+  <data name="OverwritingExistingFileAtMessage" xml:space="preserve">
+    <value>Перезапись существующего файла:</value>
+  </data>
+  <data name="NoPackageSelectionArgumentProvided" xml:space="preserve">
+    <value>Не указан аргумент выбора пакета; дополнительные сведения о поиске пакета см. в справке.</value>
+  </data>
+  <data name="PortableInstallFailed" xml:space="preserve">
+    <value>Сбой переносной установки; Очистка...</value>
+  </data>
+  <data name="BothPurgeAndPreserveFlagsProvided" xml:space="preserve">
+    <value>Предоставляются аргументы "очистить" и "сохранить"</value>
+  </data>
+  <data name="PortableHashMismatchOverridden" xml:space="preserve">
+    <value>Portable exe был изменен; выполняется из-за параметра --force</value>
+    <comment>{Locked="--force"}</comment>
+  </data>
+  <data name="PortableHashMismatchOverrideRequired" xml:space="preserve">
+    <value>Не удалось удалить Portable exe, так как он был изменен; чтобы переопределить эту проверку, используйте параметр --force</value>
+    <comment>{Locked="--force"}</comment>
+  </data>
+  <data name="FilesRemainInInstallDirectory" xml:space="preserve">
+    <value>Файлы, остающиеся в каталоге установки:</value>
+  </data>
+  <data name="PurgeInstallDirectory" xml:space="preserve">
+    <value>Очистка каталога установки...</value>
+  </data>
+  <data name="UnableToPurgeInstallDirectory" xml:space="preserve">
+    <value>Не удается очистить каталог установки, так как он не был создан с помощью WinGet</value>
+  </data>
+  <data name="RelatedLink" xml:space="preserve">
+    <value>Связанная ссылка</value>
+  </data>
+  <data name="ShowLabelDocumentation" xml:space="preserve">
+    <value>Документация:</value>
+  </data>
+  <data name="Notes" xml:space="preserve">
+    <value>Примечания:</value>
+  </data>
+  <data name="ShowLabelInstallationNotes" xml:space="preserve">
+    <value>InstallationNotes:</value>
   </data>
 </root>

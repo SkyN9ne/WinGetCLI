@@ -42,6 +42,10 @@ namespace AppInstaller::Settings
                 return userSettings.Get<Setting::EFDependencies>();
             case ExperimentalFeature::Feature::DirectMSI:
                 return userSettings.Get<Setting::EFDirectMSI>();
+            case ExperimentalFeature::Feature::ZipInstall:
+                return userSettings.Get<Setting::EFZipInstall>();
+            case ExperimentalFeature::Feature::OpenLogsArgument:
+                return userSettings.Get<Setting::EFOpenLogsArgument>();
             default:
                 THROW_HR(E_UNEXPECTED);
             }
@@ -73,6 +77,10 @@ namespace AppInstaller::Settings
             return ExperimentalFeature{ "Show Dependencies Information", "dependencies", "https://aka.ms/winget-settings", Feature::Dependencies };
         case Feature::DirectMSI:
             return ExperimentalFeature{ "Direct MSI Installation", "directMSI", "https://aka.ms/winget-settings", Feature::DirectMSI };
+        case Feature::ZipInstall:
+            return ExperimentalFeature{ "Zip Installation", "zipInstall", "https://aka.ms/winget-settings", Feature::ZipInstall };
+        case Feature::OpenLogsArgument:
+            return ExperimentalFeature{ "Open Logs Argument", "openLogsArgument", "https://aka.ms/winget-settings", Feature::OpenLogsArgument };
         default:
             THROW_HR(E_UNEXPECTED);
         }

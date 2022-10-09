@@ -3,8 +3,10 @@
 #include "pch.h"
 #include "TestCommon.h"
 #include "TestHooks.h"
-#include "winget/GroupPolicy.h"
-#include "winget/UserSettings.h"
+#include <winget/GroupPolicy.h>
+#include <winget/UserSettings.h>
+#include <AppInstallerMsixInfo.h>
+#include <AppInstallerDownloader.h>
 
 namespace TestCommon
 {
@@ -22,13 +24,16 @@ namespace TestCommon
             return randStart++;
         }
 
+        inline std::filesystem::path GetFilePath(std::filesystem::path path, const std::string& baseName, const std::string& baseExt)
+        {
+            path /= baseName + std::to_string(getRand()) + baseExt;
+            return path;
+        }
+
         inline std::filesystem::path GetTempFilePath(const std::string& baseName, const std::string& baseExt)
         {
             std::filesystem::path tempFilePath = std::filesystem::temp_directory_path();
-
-            tempFilePath /= baseName + std::to_string(getRand()) + baseExt;
-
-            return tempFilePath;
+            return GetFilePath(tempFilePath, baseName, baseExt);
         }
 
         static TempFileDestructionBehavior s_TempFileDestructorBehavior = TempFileDestructionBehavior::Delete;
@@ -46,6 +51,15 @@ namespace TestCommon
     TempFile::TempFile(const std::string& baseName, const std::string& baseExt, bool deleteFileOnConstruction)
     {
         _filepath = GetTempFilePath(baseName, baseExt);
+        if (deleteFileOnConstruction)
+        {
+            std::filesystem::remove(_filepath);
+        }
+    }
+
+    TempFile::TempFile(const std::filesystem::path& parent, const std::string& baseName, const std::string& baseExt, bool deleteFileOnConstruction)
+    {
+        _filepath = GetFilePath(parent, baseName, baseExt);
         if (deleteFileOnConstruction)
         {
             std::filesystem::remove(_filepath);
@@ -82,6 +96,12 @@ namespace TestCommon
             s_TempFilesOnFile.emplace_back(std::move(_filepath));
             break;
         }
+    }
+
+    void TempFile::Rename(const std::filesystem::path& newFilePath)
+    {
+        std::filesystem::rename(GetPath(), newFilePath);
+        _filepath = newFilePath;
     }
 
     void TempFile::SetDestructorBehavior(TempFileDestructionBehavior behavior)
@@ -200,6 +220,13 @@ namespace TestCommon
         THROW_IF_WIN32_ERROR(RegSetValueExW(key, name.c_str(), 0, REG_DWORD, reinterpret_cast<const BYTE*>(&value), sizeof(DWORD)));
     }
 
+    void EnableDevMode(bool enable)
+    {
+        wil::unique_hkey result;
+        THROW_IF_WIN32_ERROR(RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock", 0, KEY_ALL_ACCESS|KEY_WOW64_64KEY, &result));
+        SetRegistryValue(result.get(), L"AllowDevelopmentWithoutDevLicense", (enable ? 1 : 0));
+    }
+
     TestUserSettings::TestUserSettings(bool keepFileSettings)
     {
         if (!keepFileSettings)
@@ -213,5 +240,90 @@ namespace TestCommon
     TestUserSettings::~TestUserSettings()
     {
         AppInstaller::Settings::SetUserSettingsOverride(nullptr);
+    }
+
+    bool InstallCertFromSignedPackage(const std::filesystem::path& package)
+    {
+        auto [certContext, certStore] = AppInstaller::Msix::GetCertContextFromMsix(package);
+
+        wil::unique_hcertstore trustedPeopleStore;
+        trustedPeopleStore.reset(CertOpenStore(
+            CERT_STORE_PROV_SYSTEM_W,
+            PKCS_7_ASN_ENCODING | X509_ASN_ENCODING,
+            NULL,
+            CERT_SYSTEM_STORE_LOCAL_MACHINE,
+            L"TrustedPeople"));
+        THROW_LAST_ERROR_IF(!trustedPeopleStore.get());
+
+        wil::unique_cert_context existingCert;
+        existingCert.reset(CertFindCertificateInStore(
+            trustedPeopleStore.get(),
+            PKCS_7_ASN_ENCODING | X509_ASN_ENCODING,
+            0,
+            CERT_FIND_EXISTING,
+            certContext.get(),
+            nullptr));
+
+        // Add if it does not already exist in the store
+        if (!existingCert.get())
+        {
+            THROW_LAST_ERROR_IF(!CertAddCertificateContextToStore(
+                trustedPeopleStore.get(),
+                certContext.get(),
+                CERT_STORE_ADD_NEW,
+                nullptr));
+
+            return true;
+        }
+
+        return false;
+    }
+
+    bool UninstallCertFromSignedPackage(const std::filesystem::path& package)
+    {
+        auto [certContext, certStore] = AppInstaller::Msix::GetCertContextFromMsix(package);
+
+        wil::unique_hcertstore trustedPeopleStore;
+        trustedPeopleStore.reset(CertOpenStore(
+            CERT_STORE_PROV_SYSTEM_W,
+            PKCS_7_ASN_ENCODING | X509_ASN_ENCODING,
+            NULL,
+            CERT_SYSTEM_STORE_LOCAL_MACHINE,
+            L"TrustedPeople"));
+        THROW_LAST_ERROR_IF(!trustedPeopleStore.get());
+
+        wil::unique_cert_context existingCert;
+        existingCert.reset(CertFindCertificateInStore(
+            trustedPeopleStore.get(),
+            PKCS_7_ASN_ENCODING | X509_ASN_ENCODING,
+            0,
+            CERT_FIND_EXISTING,
+            certContext.get(),
+            nullptr));
+
+        // Remove if it exists in the store
+        if (existingCert.get())
+        {
+            THROW_LAST_ERROR_IF(!CertDeleteCertificateFromStore(existingCert.get()));
+
+            return true;
+        }
+
+        return false;
+    }
+
+    bool GetMsixPackageManifestReader(std::string_view testFileName, IAppxManifestReader** manifestReader)
+    {
+        // Locate test file
+        TestDataFile testFile(testFileName);
+        auto path = testFile.GetPath().u8string();
+
+        // Get the stream for the test file
+        auto stream = AppInstaller::Utility::GetReadOnlyStreamFromURI(path);
+
+        // Get manifest from package reader
+        Microsoft::WRL::ComPtr<IAppxPackageReader> packageReader;
+        return  AppInstaller::Msix::GetPackageReader(stream.Get(), &packageReader)
+            && SUCCEEDED(packageReader->GetManifest(manifestReader));
     }
 }

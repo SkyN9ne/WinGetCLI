@@ -59,6 +59,9 @@ namespace AppInstaller::Repository::Microsoft
         // Returns true IFF the value exists and contains a non-zero DWORD.
         static bool GetBoolValue(const Registry::Key& arpKey, const std::wstring& name);
 
+        // Returns the string value if it exists.
+        static std::string GetStringValue(const Registry::Key& arpKey, const std::wstring& name);
+
         // Determines the version from an ARP entry.
         // The priority is:
         //  DisplayVersion
@@ -76,6 +79,6 @@ namespace AppInstaller::Repository::Microsoft
         // Populates the index with the ARP entries from the given key.
         // This entry point is primarily to allow unit tests to operate of arbitrary keys;
         // product code should use PopulateIndexFromARP.
-        void PopulateIndexFromKey(SQLiteIndex& index, const Registry::Key& key, std::string_view scope, std::string_view architecture) const;
+        void PopulateIndexFromKey(SQLiteIndex& index, const Registry::Key& key, std::string_view scope, std::string_view architecture, const std::map<std::string, std::string>& upgradeCodes = {}) const;
     };
 }

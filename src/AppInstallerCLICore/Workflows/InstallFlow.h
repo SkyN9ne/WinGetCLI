@@ -23,48 +23,37 @@ namespace AppInstaller::CLI::Workflow
     // Outputs: None
     void ShowInstallationDisclaimer(Execution::Context& context);
 
-    // Shows the license agreements if the application has them.
+    // Displays the installations notes after a successful install.
     // Required Args: None
-    // Inputs: Manifest
+    // Inputs: InstallationNotes
     // Outputs: None
-    struct ShowPackageAgreements : public WorkflowTask
-    {
-        ShowPackageAgreements(bool ensureAcceptance) : WorkflowTask("ShowPackageAgreements"), m_ensureAcceptance(ensureAcceptance) {}
-
-        void operator()(Execution::Context& context) const override;
-
-    private:
-        // Whether we need to ensure that the agreements are accepted, or only show them.
-        bool m_ensureAcceptance;
-    };
-
-    // Ensure the user accepted the license agreements.
+    void DisplayInstallationNotes(Execution::Context& context);
+    
+    // Checks if there are any included arguments that are not supported for the package.
     // Required Args: None
-    // Inputs: None
+    // Inputs: Installer
     // Outputs: None
-    struct EnsurePackageAgreementsAcceptance : public WorkflowTask
-    {
-        EnsurePackageAgreementsAcceptance(bool showPrompt) : WorkflowTask("EnsurePackageAgreementsAcceptance"), m_showPrompt(showPrompt) {}
-
-        void operator()(Execution::Context& context) const override;
-
-    private:
-        // Whether to show an interactive prompt
-        bool m_showPrompt;
-    };
-
-    // Ensure that the user accepted all the license agreements when there are
-    // multiple installers.
-    // Required Args: None
-    // Inputs: PackagesToInstall
-    // Outputs: None
-    void EnsurePackageAgreementsAcceptanceForMultipleInstallers(Execution::Context& context);
+    void CheckForUnsupportedArgs(Execution::Context& context);
 
     // Composite flow that chooses what to do based on the installer type.
     // Required Args: None
     // Inputs: Installer, InstallerPath
     // Outputs: None
     void ExecuteInstaller(Execution::Context& context);
+
+    // Composite flow that chooses what to do based on the installer type.
+    // Required Args: None
+    // Inputs: Installer, InstallerPath
+    // Outputs: None
+    struct ExecuteInstallerForType : public WorkflowTask
+    {
+        ExecuteInstallerForType(Manifest::InstallerTypeEnum installerType) : WorkflowTask("ExecuteInstallerForType"), m_installerType(installerType) {}
+
+        void operator()(Execution::Context& context) const override;
+
+    private:
+        Manifest::InstallerTypeEnum m_installerType;
+    };
 
     // Runs the installer via ShellExecute.
     // Required Args: None
@@ -83,6 +72,24 @@ namespace AppInstaller::CLI::Workflow
     // Inputs: Manifest?, Installer || InstallerPath
     // Outputs: None
     void MsixInstall(Execution::Context& context);
+
+    // Runs the flow for installing a Portable package.
+    // Required Args: None
+    // Inputs: Installer, InstallerPath
+    // Outputs: None
+    void PortableInstall(Execution::Context& context);
+
+    // Runs the flow for installing a package from an archive.
+    // Required Args: None
+    // Inputs: Installer, InstallerPath, Manifest
+    // Outputs: None
+    void ArchiveInstall(Execution::Context& context);
+
+    // Verifies parameters for install to ensure success.
+    // Required Args: None
+    // Inputs: 
+    // Outputs: None
+    void EnsureSupportForInstall(Execution::Context& context);
 
     // Reports the return code returned by the installer.
     // Required Args: None
@@ -167,15 +174,16 @@ namespace AppInstaller::CLI::Workflow
     // Outputs: ARPSnapshot
     void SnapshotARPEntries(Execution::Context& context);
 
-    // Reports on the changes between the stored ARPSnapshot and the current values.
+    // Reports on the changes between the stored ARPSnapshot and the current values,
+    // and stores the product code of the ARP entry found for the package.
     // Required Args: None
     // Inputs: ARPSnapshot?, Manifest, PackageVersion
-    // Outputs: None
+    // Outputs: CorrelatedAppsAndFeaturesEntries?
     void ReportARPChanges(Execution::Context& context);
 
     // Records the installation to the tracking catalog.
     // Required Args: None
-    // Inputs: PackageVersion?, Manifest, Installer
+    // Inputs: PackageVersion?, Manifest, Installer, CorrelatedAppsAndFeaturesEntries?
     // Outputs: None
     void RecordInstall(Execution::Context& context);
 }

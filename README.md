@@ -1,10 +1,10 @@
-# Welcome to the Windows Package Manager Client (aka winget.exe) repository
+<h1>Windows Package Manager Client<img src=".github/images/Logo.png" align="left" width="50" height="39"></h1>
 
-This repository contains the source code for the Windows Package Manager Client (aka winget.exe).
+This repository contains the source code for the Windows Package Manager Client.
 
 ![winget install wingetcreate](.github/images/WingetInstall.gif)
 
-The packages available to the client are in the [Community repo](https://github.com/microsoft/winget-pkgs).
+If you are new to the Windows Package Manager, you might want to [Explore the Windows Package Manager tool](https://docs.microsoft.com/learn/modules/explore-windows-package-manager-tool/?WT.mc_id=AZ-MVP-5004737). The packages available to the client are in the [Windows Package Manager Community Repository](https://github.com/microsoft/winget-pkgs).
 
 ## Installing The Client
 
@@ -12,7 +12,7 @@ The packages available to the client are in the [Community repo](https://github.
 
 ### Microsoft Store [Recommended]
 
-The client is distributed within the [App Installer](ms-windows-store://pdp/?productid=9nblggh4nns1) package. 
+The client is distributed within the [App Installer](https://www.microsoft.com/p/app-installer/9nblggh4nns1) package. 
 
 ### Development Releases
 
@@ -53,11 +53,12 @@ You can also [build the client yourself](#building-the-client). While the client
 [![Build Status](https://dev.azure.com/ms/winget-cli/_apis/build/status/microsoft.winget-cli?branchName=master)](https://dev.azure.com/ms/winget-cli/_build/latest?definitionId=344&branchName=master)
 
 ## Windows Package Manager Release Roadmap
-The plan for delivering next Windows Package Manager release [is described here](doc/windows-package-manager-release-roadmap.md), and will be updated as the project proceeds.
+The plan for delivering next Windows Package Manager releases is described included in our [discussions](https://github.com/microsoft/winget-cli/discussions/2063), and will be updated as the project proceeds.
 
 ## Overview of the  Windows Package Manager
-The **Windows Package Manager** is a tool designed to help you quickly and easily discover and install those tools that make your PC environment special.  By using the **Windows Package Manager**, from one command, you can install your favorite tool: 
-```winget install <tool>```
+The **Windows Package Manager** is a tool designed to help you quickly and easily discover and install those packages that make your PC environment special.  By using the **Windows Package Manager**, from one command, you can install your favorite packages: 
+
+`winget install <package>`
 
 ## Overview  
 
@@ -67,13 +68,9 @@ This winget-cli repository includes the source code designed to build the client
 ### Sources
 The client is built around the concept of sources; a set of packages effectively. Sources provide the ability to discover and retrieve the metadata about the packages, so that the client can act on it.
 
-The default source reflects that data available from the [Community repo](https://github.com/microsoft/winget-pkgs).
-
-We plan to better support additional sources, and additional types of sources, in the future. For now, additional sources can be configured, but only one used at a time.
-
-### Package Manager Service 
-The **Package Manager Service** is responsible for approving Pull Requests.  It validates the YAML and [manifest spec](/doc/ManifestSpecv1.0.md) for spec compliance.
-
+* The default "winget" source includes packages in the [Windows Package Manager Community Repository](https://github.com/microsoft/winget-pkgs).
+* The default "msstore" source includes packages in the Microsoft Store.
+* It is also possible to host your own private [REST based](https://github.com/microsoft/winget-cli-restsource) source.
 
 ## Building the client
 
@@ -81,14 +78,14 @@ The **Package Manager Service** is responsible for approving Pull Requests.  It 
 
 * Windows 10 1809 (17763) or later
 * [Developer Mode enabled](https://docs.microsoft.com/windows/uwp/get-started/enable-your-device-for-development)
-* [Visual Studio 2019](https://visualstudio.microsoft.com/downloads/)
+* [Visual Studio 2022](https://visualstudio.microsoft.com/downloads/)
    * Or use winget to install it ;) (although you may need to adjust the workloads via Tools->Get Tools and Features...)
 * The following workloads:
    * .NET Desktop Development
    * Desktop Development with C++
    * Universal Windows Platform Development
 * The following extensions:
-   * [Microsoft Visual Studio Installer Projects](https://marketplace.visualstudio.com/items?itemName=VisualStudioClient.MicrosoftVisualStudio2017InstallerProjects)
+   * [Microsoft Visual Studio Installer Projects](https://marketplace.visualstudio.com/items?itemName=VisualStudioClient.MicrosoftVisualStudio2022InstallerProjects)
 
 ### Building
 
@@ -97,7 +94,6 @@ We currently only build using the solution; command line methods of building a V
 ## Credit
 
 We would like to thank [Keivan Beigi (@kayone)](https://github.com/kayone) for his work on AppGet which helped us on the initial project direction for Windows Package Manager.
-
 
 ## Contributing
 
@@ -120,7 +116,7 @@ The winget.exe client is instrumented to collect usage and diagnostic (error) da
 
 If you build the client yourself the instrumentation will not be enabled and no data will be sent to Microsoft.
 
-The winget.exe client respects machine wide privacy settings and users can opt-out on their device, as documented in the Microsoft Windows privacy statement [here](https://support.microsoft.com/help/4468236/diagnostics-feedback-and-privacy-in-windows-10-microsoft-privacy).
+The winget.exe client respects machine wide privacy settings and users can opt-out on their device, as documented in the Microsoft Windows privacy statement [here](https://support.microsoft.com/help/4468236/diagnostics-feedback-and-privacy-in-windows-10-microsoft-privacy). In addition, you may also explicitly block telemetry using [settings](https://docs.microsoft.com/windows/package-manager/winget/settings)
 
 In short to opt-out, go to `Start`, then select `Settings` > `Privacy` > `Diagnostics & feedback`, and select `Basic`. 
 

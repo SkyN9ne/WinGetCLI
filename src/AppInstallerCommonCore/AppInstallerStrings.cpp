@@ -23,7 +23,7 @@ namespace AppInstaller::Utility
         {
             ICUBreakIterator(std::string_view input, UBreakIteratorType type)
             {
-                UErrorCode err = U_ZERO_ERROR;
+                UErrorCode err = U_ZERO_ERROR; 
 
                 m_text.reset(utext_openUTF8(nullptr, input.data(), wil::safe_cast<int64_t>(input.length()), &err));
                 if (U_FAILURE(err))
@@ -87,6 +87,12 @@ namespace AppInstaller::Utility
                 return utext_char32At(m_text.get(), m_currentBrk);
             }
 
+            // Returns the status from the break rule that determined the most recently break position.
+            int32_t CurrentRuleStatus()
+            {
+                return ubrk_getRuleStatus(m_brk.get());
+            }
+
         private:
             wil::unique_any<UText*, decltype(utext_close), &utext_close> m_text;
             wil::unique_any<UBreakIterator*, decltype(ubrk_close), &ubrk_close> m_brk;
@@ -97,6 +103,12 @@ namespace AppInstaller::Utility
     bool CaseInsensitiveEquals(std::string_view a, std::string_view b)
     {
         return ToLower(a) == ToLower(b);
+    }
+
+    bool CaseInsensitiveContains(const std::vector<std::string_view>& a, std::string_view b)
+    {
+        auto B = ToLower(b);
+        return std::any_of(a.begin(), a.end(), [&](const std::string_view& s) { return ToLower(s) == B; });
     }
 
     bool CaseInsensitiveStartsWith(std::string_view a, std::string_view b)
@@ -150,6 +162,43 @@ namespace AppInstaller::Utility
 
         int utf16CharsWritten = MultiByteToWideChar(codePage, 0, input.data(), wil::safe_cast<int>(input.length()), &result[0], wil::safe_cast<int>(result.size()));
         FAIL_FAST_HR_IF(E_UNEXPECTED, utf16CharCount != utf16CharsWritten);
+
+        return result;
+    }
+
+    std::u32string ConvertToUTF32(std::string_view input)
+    {
+        if (input.empty())
+        {
+            return {};
+        }
+
+        UErrorCode errorCode = UErrorCode::U_ZERO_ERROR;
+        auto utf32ByteCount= ucnv_convert("UTF-32", "UTF-8", nullptr, 0, input.data(), static_cast<int32_t>(input.size()), &errorCode);
+
+        if (errorCode != U_BUFFER_OVERFLOW_ERROR)
+        {
+            AICLI_LOG(Core, Error, << "ucnv_convert returned " << errorCode);
+            THROW_HR(APPINSTALLER_CLI_ERROR_ICU_CONVERSION_ERROR);
+        }
+
+        FAIL_FAST_HR_IF(E_UNEXPECTED, utf32ByteCount % sizeof(char32_t) != 0);
+        auto utf32CharCount = utf32ByteCount / sizeof(char32_t);
+        std::u32string result(utf32CharCount, U'\0');
+
+        errorCode = UErrorCode::U_ZERO_ERROR;
+
+        auto utf32BytesWritten = ucnv_convert("UTF-32", "UTF-8", (char*)(result.data()), utf32ByteCount, input.data(), static_cast<int32_t>(input.size()), &errorCode);
+
+        // The size we pass to ucnv_convert is not enough for it to put in the null terminator,
+        // which wouldn't work anyways as it puts a single byte.
+        if (errorCode != U_STRING_NOT_TERMINATED_WARNING)
+        {
+            AICLI_LOG(Core, Error, << "ucnv_convert returned " << errorCode);
+            THROW_HR(APPINSTALLER_CLI_ERROR_ICU_CONVERSION_ERROR);
+        }
+
+        FAIL_FAST_HR_IF(E_UNEXPECTED, utf32ByteCount != utf32BytesWritten);
 
         return result;
     }
@@ -286,6 +335,17 @@ namespace AppInstaller::Utility
                 cchEstimate = -cchEstimate;
 
                 THROW_HR_IF_MSG(E_UNEXPECTED, static_cast<size_t>(cchEstimate) <= result.size(), "New estimate should never be less than previous value");
+            }
+        }
+    }
+
+    void ReplaceEmbeddedNullCharacters(std::string& s, char c)
+    {
+        for (size_t i = 0; i < s.length(); ++i)
+        {
+            if (s[i] == '\0')
+            {
+                s[i] = c;
             }
         }
     }
@@ -590,5 +650,67 @@ namespace AppInstaller::Utility
         std::filesystem::path path{ static_cast<std::wstring_view>(winrtUri.Path()) };
 
         return path.filename();
+    }
+
+    std::vector<std::string> SplitIntoWords(std::string_view input)
+    {
+        ICUBreakIterator itr{ input, UBRK_WORD };
+        std::size_t currentOffset = 0;
+
+        std::vector<std::string> result;
+        while (itr.Next() != UBRK_DONE)
+        {
+            std::size_t nextOffset = itr.CurrentOffset();
+
+            // Ignore spaces and punctuation, accept words and numbers
+            if (itr.CurrentRuleStatus() != UBRK_WORD_NONE)
+            {
+                auto wordSize = nextOffset - currentOffset;
+                result.emplace_back(input, currentOffset, wordSize);
+            }
+
+            currentOffset = nextOffset;
+        }
+
+        return result;
+    }
+
+    std::string ConvertToHexString(const std::vector<uint8_t>& buffer, size_t byteCount)
+    {
+        if (byteCount && buffer.size() != byteCount)
+        {
+            THROW_HR_MSG(E_INVALIDARG, "ConvertToHexString: Invalid buffer size");
+        }
+
+        std::string result(2 * buffer.size(), '\0');
+        static constexpr std::array<char, 16> hexChars = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f' };
+
+        for (size_t i = 0; i < buffer.size(); ++i)
+        {
+            result[2 * i] = hexChars[(buffer[i] >> 4) & 0xF];
+            result[2 * i + 1] = hexChars[buffer[i] & 0xF];
+        }
+
+        return result;
+    }
+
+    std::vector<uint8_t> ParseFromHexString(const std::string& value, size_t byteCount)
+    {
+        if ((byteCount && value.size() != (2 * byteCount)) ||
+            (value.size() % 2))
+        {
+            THROW_HR_MSG(E_INVALIDARG, "ParseFromHexString: Invalid value size");
+        }
+
+        const char* valuePtr = value.c_str();
+        std::vector<uint8_t> result;
+        result.resize(value.size() / 2);
+
+        for (size_t i = 0; i < result.size(); i++)
+        {
+            sscanf_s(valuePtr + 2 * i, "%02hhx", &result[i]);
+        }
+
+        return result;
     }
 }

@@ -158,6 +158,10 @@ namespace AppInstaller::Manifest
         {
             result = InstallerTypeEnum::MSStore;
         }
+        else if (inStrLower == "portable") 
+        {
+            result = InstallerTypeEnum::Portable;
+        }
 
         return result;
     }
@@ -250,6 +254,22 @@ namespace AppInstaller::Manifest
         return result;
     }
 
+    UnsupportedArgumentEnum ConvertToUnsupportedArgumentEnum(const std::string& in)
+    {
+        UnsupportedArgumentEnum result = UnsupportedArgumentEnum::Unknown;
+
+        if (Utility::CaseInsensitiveEquals(in, "log"))
+        {
+            result = UnsupportedArgumentEnum::Log;
+        }
+        else if (Utility::CaseInsensitiveEquals(in, "location"))
+        {
+            result = UnsupportedArgumentEnum::Location;
+        }
+
+        return result;
+    }
+
     ManifestTypeEnum ConvertToManifestTypeEnum(const std::string& in)
     {
         if (in == "singleton")
@@ -290,6 +310,10 @@ namespace AppInstaller::Manifest
         if (inStrLower == "packageinuse")
         {
             result = ExpectedReturnCodeEnum::PackageInUse;
+        }
+        if (inStrLower == "packageinusebyapplication")
+        {
+            result = ExpectedReturnCodeEnum::PackageInUseByApplication;
         }
         else if (inStrLower == "installinprogress")
         {
@@ -347,6 +371,31 @@ namespace AppInstaller::Manifest
         {
             result = ExpectedReturnCodeEnum::BlockedByPolicy;
         }
+        else if (inStrLower == "custom")
+        {
+            result = ExpectedReturnCodeEnum::Custom;
+        }
+
+        return result;
+    }
+
+    InstalledFileTypeEnum ConvertToInstalledFileTypeEnum(const std::string& in)
+    {
+        std::string inStrLower = Utility::ToLower(in);
+        InstalledFileTypeEnum result = InstalledFileTypeEnum::Unknown;
+
+        if (inStrLower == "launch")
+        {
+            result = InstalledFileTypeEnum::Launch;
+        }
+        else if (inStrLower == "uninstall")
+        {
+            result = InstalledFileTypeEnum::Uninstall;
+        }
+        else if (inStrLower == "other")
+        {
+            result = InstalledFileTypeEnum::Other;
+        }
 
         return result;
     }
@@ -373,6 +422,8 @@ namespace AppInstaller::Manifest
             return "burn"sv;
         case InstallerTypeEnum::MSStore:
             return "msstore"sv;
+        case InstallerTypeEnum::Portable:
+            return "portable"sv;
         }
 
         return "unknown"sv;
@@ -404,7 +455,8 @@ namespace AppInstaller::Manifest
             installerType == InstallerTypeEnum::Msi ||
             installerType == InstallerTypeEnum::Nullsoft ||
             installerType == InstallerTypeEnum::Wix ||
-            installerType == InstallerTypeEnum::Burn
+            installerType == InstallerTypeEnum::Burn ||
+            installerType == InstallerTypeEnum::Portable
             );
     }
 
@@ -416,7 +468,51 @@ namespace AppInstaller::Manifest
             installerType == InstallerTypeEnum::Msi ||
             installerType == InstallerTypeEnum::Nullsoft ||
             installerType == InstallerTypeEnum::Wix ||
+            installerType == InstallerTypeEnum::Burn ||
+            installerType == InstallerTypeEnum::Portable
+            );
+    }
+
+    bool DoesInstallerTypeSupportArpVersionRange(InstallerTypeEnum installerType)
+    {
+        return (
+            installerType == InstallerTypeEnum::Exe ||
+            installerType == InstallerTypeEnum::Inno ||
+            installerType == InstallerTypeEnum::Msi ||
+            installerType == InstallerTypeEnum::Nullsoft ||
+            installerType == InstallerTypeEnum::Wix ||
             installerType == InstallerTypeEnum::Burn
+            );
+    }
+
+    bool DoesInstallerTypeIgnoreScopeFromManifest(InstallerTypeEnum installerType)
+    {
+        return (
+            installerType == InstallerTypeEnum::Portable
+            );
+    }
+
+    bool IsArchiveType(InstallerTypeEnum installerType)
+    {
+        return (installerType == InstallerTypeEnum::Zip);
+    }
+
+    bool IsPortableType(InstallerTypeEnum installerType)
+    {
+        return (installerType == InstallerTypeEnum::Portable);
+    }
+
+    bool IsNestedInstallerTypeSupported(InstallerTypeEnum nestedInstallerType)
+    {
+        return (
+            nestedInstallerType == InstallerTypeEnum::Exe ||
+            nestedInstallerType == InstallerTypeEnum::Inno ||
+            nestedInstallerType == InstallerTypeEnum::Msi ||
+            nestedInstallerType == InstallerTypeEnum::Nullsoft ||
+            nestedInstallerType == InstallerTypeEnum::Wix ||
+            nestedInstallerType == InstallerTypeEnum::Burn ||
+            nestedInstallerType == InstallerTypeEnum::Portable ||
+            nestedInstallerType == InstallerTypeEnum::Msix
             );
     }
 
@@ -455,8 +551,8 @@ namespace AppInstaller::Manifest
         case InstallerTypeEnum::Msi:
             return
             {
-                {InstallerSwitchType::Silent, ManifestInstaller::string_t("/quiet")},
-                {InstallerSwitchType::SilentWithProgress, ManifestInstaller::string_t("/passive")},
+                {InstallerSwitchType::Silent, ManifestInstaller::string_t("/quiet /norestart")},
+                {InstallerSwitchType::SilentWithProgress, ManifestInstaller::string_t("/passive /norestart")},
                 {InstallerSwitchType::Log, ManifestInstaller::string_t("/log \"" + std::string(ARG_TOKEN_LOGPATH) + "\"")},
                 {InstallerSwitchType::InstallLocation, ManifestInstaller::string_t("TARGETDIR=\"" + std::string(ARG_TOKEN_INSTALLPATH) + "\"")}
             };
@@ -470,8 +566,8 @@ namespace AppInstaller::Manifest
         case InstallerTypeEnum::Inno:
             return
             {
-                {InstallerSwitchType::Silent, ManifestInstaller::string_t("/VERYSILENT")},
-                {InstallerSwitchType::SilentWithProgress, ManifestInstaller::string_t("/SILENT")},
+                {InstallerSwitchType::Silent, ManifestInstaller::string_t("/VERYSILENT /NORESTART")},
+                {InstallerSwitchType::SilentWithProgress, ManifestInstaller::string_t("/SILENT /NORESTART")},
                 {InstallerSwitchType::Log, ManifestInstaller::string_t("/LOG=\"" + std::string(ARG_TOKEN_LOGPATH) + "\"")},
                 {InstallerSwitchType::InstallLocation, ManifestInstaller::string_t("/DIR=\"" + std::string(ARG_TOKEN_INSTALLPATH) + "\"")}
             };

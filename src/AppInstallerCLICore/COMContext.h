@@ -38,14 +38,17 @@ namespace AppInstaller::CLI::Execution
         // When no Console streams need involvement, construct NullStreams instead to pass to Context
         COMContext() : NullStream(), CLI::Execution::Context(*m_nullOut, *m_nullIn)
         {
+            Reporter.SetChannel(Reporter::Channel::Disabled);
             Reporter.SetProgressSink(this);
             SetFlags(CLI::Execution::ContextFlag::AgreementsAcceptedByCaller);
+            SetFlags(CLI::Execution::ContextFlag::DisableInteractivity);
         }
 
         COMContext(std::ostream& out, std::istream& in) : CLI::Execution::Context(out, in)
         {
             Reporter.SetProgressSink(this);
             SetFlags(CLI::Execution::ContextFlag::AgreementsAcceptedByCaller);
+            SetFlags(CLI::Execution::ContextFlag::DisableInteractivity);
         }
 
         ~COMContext() = default;

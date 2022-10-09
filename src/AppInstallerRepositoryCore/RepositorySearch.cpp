@@ -84,9 +84,37 @@ namespace AppInstaller::Repository
         case PackageVersionMetadata::Publisher: return "Publisher"sv;
         case PackageVersionMetadata::InstalledLocale: return "InstalledLocale"sv;
         case PackageVersionMetadata::TrackingWriteTime: return "TrackingWriteTime"sv;
+        case PackageVersionMetadata::InstalledArchitecture: return "InstalledArchitecture"sv;
+        case PackageVersionMetadata::PinnedState: return "PinnedState"sv;
+        case PackageVersionMetadata::UserIntentArchitecture: return "UserIntentArchitecture"sv;
+        case PackageVersionMetadata::UserIntentLocale: return "UserIntentLocale"sv;
         default: return "Unknown"sv;
         }
     }
+
+    std::string_view ToString(PackagePinnedState state)
+    {
+        switch (state)
+        {
+        case PackagePinnedState::PinnedByManifest: return "PinnedByManifest"sv;
+        case PackagePinnedState::NotPinned:
+        default:
+            return "Unknown";
+        }
+    }
+
+    PackagePinnedState ConvertToPackagePinnedStateEnum(std::string_view in)
+    {
+        if (Utility::CaseInsensitiveEquals(in, "PinnedByManifest"sv))
+        {
+            return PackagePinnedState::PinnedByManifest;
+        }
+        else
+        {
+            return PackagePinnedState::NotPinned;
+        }
+    }
+
 
     const char* UnsupportedRequestException::what() const noexcept
     {
@@ -159,6 +187,8 @@ namespace AppInstaller::Repository
             return "PackageFamilyName"sv;
         case PackageMatchField::ProductCode:
             return "ProductCode"sv;
+        case PackageMatchField::UpgradeCode:
+            return "UpgradeCode"sv;
         case PackageMatchField::NormalizedNameAndPublisher:
             return "NormalizedNameAndPublisher"sv;
         case PackageMatchField::Market:
@@ -199,6 +229,10 @@ namespace AppInstaller::Repository
         else if (toLower == "productcode")
         {
             return PackageMatchField::ProductCode;
+        }
+        else if (toLower == "upgradecode")
+        {
+            return PackageMatchField::UpgradeCode;
         }
         else if (toLower == "normalizednameandpublisher")
         {

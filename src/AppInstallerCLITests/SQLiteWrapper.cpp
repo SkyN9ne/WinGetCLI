@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "TestCommon.h"
+#include <AppInstallerErrors.h>
 #include <SQLiteWrapper.h>
 #include <SQLiteStatementBuilder.h>
 
@@ -286,6 +287,31 @@ TEST_CASE("SQLiteWrapper_EscapeStringForLike", "[sqlitewrapper]")
     REQUIRE(expected == output);
 }
 
+TEST_CASE("SQLiteWrapper_BindWithEmbeddedNull", "[sqlitewrapper]")
+{
+    Connection connection = Connection::Create(SQLITE_MEMORY_DB_CONNECTION_TARGET, Connection::OpenDisposition::Create);
+
+    CreateSimpleTestTable(connection);
+
+    int firstVal = 1;
+    std::string secondVal = "test";
+    secondVal[1] = '\0';
+
+    REQUIRE_THROWS_HR(InsertIntoSimpleTestTable(connection, firstVal, secondVal), APPINSTALLER_CLI_ERROR_BIND_WITH_EMBEDDED_NULL);
+}
+
+TEST_CASE("SQLiteWrapper_PrepareFailure", "[sqlitewrapper]")
+{
+    Connection connection = Connection::Create(SQLITE_MEMORY_DB_CONNECTION_TARGET, Connection::OpenDisposition::Create);
+
+    CreateSimpleTestTable(connection);
+
+    Builder::StatementBuilder builder;
+    builder.Select({ s_firstColumn, s_secondColumn }).From(std::string{ s_tableName } + "2").Where(s_firstColumn).Equals(2);
+
+    REQUIRE_THROWS_HR(builder.Prepare(connection), MAKE_HRESULT(SEVERITY_ERROR, FACILITY_SQLITE, SQLITE_ERROR));
+}
+
 TEST_CASE("SQLBuilder_SimpleSelectBind", "[sqlbuilder]")
 {
     Connection connection = Connection::Create(SQLITE_MEMORY_DB_CONNECTION_TARGET, Connection::OpenDisposition::Create);
@@ -423,6 +449,40 @@ TEST_CASE("SQLBuilder_Update", "[sqlbuilder]")
     UpdateSimpleTestTable(connection, firstVal, secondVal);
 
     SelectFromSimpleTestTableOnlyOneRow(connection, firstVal, secondVal);
+}
+
+TEST_CASE("SQLBuilder_CaseInsensitive", "[sqlbuilder")
+{
+    Connection connection = Connection::Create(SQLITE_MEMORY_DB_CONNECTION_TARGET, Connection::OpenDisposition::Create);
+
+    Builder::StatementBuilder createTable;
+    createTable.CreateTable(s_tableName).Columns({
+        Builder::ColumnBuilder(s_firstColumn, Builder::Type::Text).CollateNoCase()
+        });
+
+    createTable.Execute(connection);
+
+    std::string upperCaseVal = "TEST";
+    std::string lowerCaseVal = "test";
+
+    {
+        INFO("Insert initial value");
+        Builder::StatementBuilder builder;
+        builder.InsertInto(s_tableName)
+            .Columns({ s_firstColumn })
+            .Values(upperCaseVal);
+
+        builder.Execute(connection);
+    }
+
+    {
+        INFO("Retrieve using case-insensitive value");
+        Builder::StatementBuilder builder;
+        builder.Select({ s_firstColumn }).From(s_tableName).Where(s_firstColumn).Equals(lowerCaseVal);
+
+        auto statement = builder.Prepare(connection);
+        REQUIRE(statement.Step());
+    }
 }
 
 TEST_CASE("SQLBuilder_CreateTable", "[sqlbuilder]")

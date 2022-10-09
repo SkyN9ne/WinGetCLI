@@ -31,6 +31,23 @@
         }
       }
     },
+    "Logging": {
+      "description": "Logging settings",
+      "type": "object",
+      "properties": {
+        "level": {
+          "description": "Preferred logging level",
+          "type": "string",
+          "enum": [
+            "verbose",
+            "info",
+            "warning",
+            "error",
+            "critical"
+          ]
+        }
+      }
+    },
     "InstallPrefReq": {
       "description": "Shared schema for preferences and requirements",
       "type": "object",
@@ -79,7 +96,43 @@
       "type": "object",
       "properties": {
         "preferences": { "$ref": "#/definitions/InstallPrefReq" },
-        "requirements": { "$ref": "#/definitions/InstallPrefReq" }
+        "requirements": { "$ref": "#/definitions/InstallPrefReq" },
+        "ignoreWarnings": {
+          "description": "Controls whether blocking warning messages shown to the user during an install or upgrade are ignored",
+          "type": "boolean",
+          "default": false
+        },
+        "disableInstallNotes": {
+          "description": "Controls whether installation notes are shown after a successful install",
+          "type": "boolean",
+          "default":  false
+        },
+        "portablePackageUserRoot": {
+          "description": "The default root directory where packages are installed to under User scope. Applies to the portable installer type.",
+          "type": "string",
+          "default": "%LOCALAPPDATA%/Microsoft/WinGet/Packages/"
+        },
+        "portablePackageMachineRoot": {
+          "description": "The default root directory where packages are installed to under Machine scope. Applies to the portable installer type.",
+          "type": "string",
+          "default": "%PROGRAMFILES%/WinGet/Packages/"
+        },
+        "defaultInstallRoot": {
+          "description": "Default install location to use for packages that require it when not specified",
+          "type": "string",
+          "maxLength": "32767"
+        }
+      }
+    },
+    "UninstallBehavior": {
+      "description": "Uninstall settings",
+      "type": "object",
+      "properties": {
+        "purgePortablePackage": {
+          "description": "Controls whether the default behavior for uninstall removes all files and directories relevant to this package. Only applies to the portable installerType.",
+          "type": "boolean",
+          "default":  false
+        }
       }
     },
     "Telemetry": {
@@ -116,6 +169,17 @@
         }
       }
     },
+    "Interactivity": {
+      "description": "Interactivity settings",
+      "type": "object",
+      "properties": {
+        "disable": {
+          "description": "Controls whether interactive prompts are shown by the Windows Package Manager client",
+          "type": "boolean",
+          "default": false
+        }
+      }
+    },
     "Experimental": {
       "description": "Experimental Features",
       "type": "object",
@@ -139,6 +203,16 @@
           "description": "Enable use of MSI APIs rather than msiexec for MSI installs",
           "type": "boolean",
           "default": false
+        },
+        "zipInstall": {
+          "description": "Enable support for installing zip packages.",
+          "type": "boolean",
+          "default": false
+        },
+        "openLogsArgument": {
+          "description": "Enable argument to open default logs location",
+          "type": "boolean",
+          "default": false
         }
       }
     }
@@ -147,6 +221,12 @@
     {
       "properties": {
         "visual": { "$ref": "#/definitions/Visual" }
+      },
+      "additionalItems": true
+    },
+    {
+      "properties": {
+        "logging": { "$ref": "#/definitions/Logging" }
       },
       "additionalItems": true
     },
@@ -171,6 +251,12 @@
     {
       "properties": {
         "network": { "$ref": "#/definitions/Network" }
+      },
+      "additionalItems": true
+    },
+    {
+      "properties": {
+        "interactivity": { "$ref": "#/definitions/Interactivity" }
       },
       "additionalItems": true
     },

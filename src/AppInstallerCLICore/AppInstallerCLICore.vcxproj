@@ -9,7 +9,7 @@
     <ProjectGuid>{1c6e0108-2860-4b17-9f7e-fa5c6c1f3d3d}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>AppInstallerCLICore</RootNamespace>
-    <WindowsTargetPlatformVersion Condition=" '$(WindowsTargetPlatformVersion)' == '' ">10.0.18362.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.22000.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformMinVersion>10.0.17763.0</WindowsTargetPlatformMinVersion>
     <WindowsSDKDesktopARMSupport>true</WindowsSDKDesktopARMSupport>
     <WindowsSDKDesktopARM64Support>true</WindowsSDKDesktopARM64Support>
@@ -241,7 +241,7 @@
     <ClInclude Include="Argument.h" />
     <ClInclude Include="ChannelStreams.h" />
     <ClInclude Include="Command.h" />
-    <ClInclude Include="Commands\COMInstallCommand.h" />
+    <ClInclude Include="Commands\COMCommand.h" />
     <ClInclude Include="Commands\CompleteCommand.h" />
     <ClInclude Include="Commands\ExperimentalCommand.h" />
     <ClInclude Include="Commands\ExportCommand.h" />
@@ -260,7 +260,7 @@
     <ClInclude Include="Commands\SettingsCommand.h" />
     <ClInclude Include="CompletionData.h" />
     <ClInclude Include="ContextOrchestrator.h" />
-    <ClInclude Include="Public\COMContext.h" />
+    <ClInclude Include="COMContext.h" />
     <ClInclude Include="Workflows\DependenciesFlow.h" />
     <ClInclude Include="ExecutionArgs.h" />
     <ClInclude Include="ExecutionContextData.h" />
@@ -269,18 +269,22 @@
     <ClInclude Include="ExecutionReporter.h" />
     <ClInclude Include="Invocation.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="PortableInstaller.h" />
     <ClInclude Include="Public\AppInstallerCLICore.h" />
     <ClInclude Include="Resources.h" />
     <ClInclude Include="Search\Search.h" />
     <ClInclude Include="TableOutput.h" />
     <ClInclude Include="VTSupport.h" />
     <ClInclude Include="PackageCollection.h" />
+    <ClInclude Include="Workflows\ArchiveFlow.h" />
     <ClInclude Include="Workflows\CompletionFlow.h" />
     <ClInclude Include="Workflows\DependencyNodeProcessor.h" />
     <ClInclude Include="Workflows\DownloadFlow.h" />
     <ClInclude Include="Workflows\ImportExportFlow.h" />
     <ClInclude Include="Workflows\MsiInstallFlow.h" />
     <ClInclude Include="Workflows\MSStoreInstallerHandler.h" />
+    <ClInclude Include="Workflows\PortableFlow.h" />
+    <ClInclude Include="Workflows\PromptFlow.h" />
     <ClInclude Include="Workflows\SettingsFlow.h" />
     <ClInclude Include="Workflows\ShellExecuteInstallerHandler.h" />
     <ClInclude Include="Workflows\InstallFlow.h" />
@@ -293,7 +297,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="COMContext.cpp" />
-    <ClCompile Include="Commands\COMInstallCommand.cpp" />
+    <ClCompile Include="Commands\COMCommand.cpp" />
     <ClCompile Include="Commands\ImportCommand.cpp" />
     <ClCompile Include="ContextOrchestrator.cpp" />
     <ClCompile Include="Workflows\DependenciesFlow.cpp" />
@@ -324,14 +328,18 @@
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="PortableInstaller.cpp" />
     <ClCompile Include="Resources.cpp" />
     <ClCompile Include="VTSupport.cpp" />
+    <ClCompile Include="Workflows\ArchiveFlow.cpp" />
     <ClCompile Include="Workflows\CompletionFlow.cpp" />
     <ClCompile Include="Workflows\DependencyNodeProcessor.cpp" />
     <ClCompile Include="Workflows\DownloadFlow.cpp" />
     <ClCompile Include="Workflows\ImportExportFlow.cpp" />
     <ClCompile Include="Workflows\MsiInstallFlow.cpp" />
     <ClCompile Include="Workflows\MSStoreInstallerHandler.cpp" />
+    <ClCompile Include="Workflows\PortableFlow.cpp" />
+    <ClCompile Include="Workflows\PromptFlow.cpp" />
     <ClCompile Include="Workflows\SettingsFlow.cpp" />
     <ClCompile Include="Workflows\ShellExecuteInstallerHandler.cpp" />
     <ClCompile Include="Workflows\InstallFlow.cpp" />

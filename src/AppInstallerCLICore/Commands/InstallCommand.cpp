@@ -17,7 +17,6 @@ namespace AppInstaller::CLI
     namespace
     {
         constexpr Utility::LocIndView s_ArgumentName_Scope = "scope"_liv;
-        constexpr Utility::LocIndView s_ArgumentName_Architecture = "architecture"_liv;
     }
 
     std::vector<Argument> InstallCommand::GetArguments() const
@@ -32,7 +31,7 @@ namespace AppInstaller::CLI
             Argument::ForType(Args::Type::Channel),
             Argument::ForType(Args::Type::Source),
             Argument{ s_ArgumentName_Scope, Argument::NoAlias, Args::Type::InstallScope, Resource::String::InstallScopeDescription, ArgumentType::Standard, Argument::Visibility::Help },
-            Argument{ s_ArgumentName_Architecture, 'a', Args::Type::InstallArchitecture, Resource::String::InstallArchitectureArgumentDescription, ArgumentType::Standard, Argument::Visibility::Help},
+            Argument::ForType(Args::Type::InstallArchitecture),
             Argument::ForType(Args::Type::Exact),
             Argument::ForType(Args::Type::Interactive),
             Argument::ForType(Args::Type::Silent),
@@ -45,6 +44,7 @@ namespace AppInstaller::CLI
             Argument::ForType(Args::Type::AcceptPackageAgreements),
             Argument::ForType(Args::Type::CustomHeader),
             Argument::ForType(Args::Type::AcceptSourceAgreements),
+            Argument::ForType(Args::Type::Rename),
         };
     }
 
@@ -73,6 +73,7 @@ namespace AppInstaller::CLI
             context <<
                 Workflow::CompleteWithSingleSemanticsForValue(valueType);
             break;
+        case Args::Type::InstallArchitecture:
         case Args::Type::Locale:
             // May well move to CompleteWithSingleSemanticsForValue,
             // but for now output nothing.
@@ -93,6 +94,8 @@ namespace AppInstaller::CLI
 
     void InstallCommand::ValidateArgumentsInternal(Args& execArgs) const
     {
+        Argument::ValidatePackageSelectionArgumentSupplied(execArgs);
+
         if (execArgs.Contains(Args::Type::Manifest) &&
             (execArgs.Contains(Args::Type::Query) ||
              execArgs.Contains(Args::Type::Id) ||
@@ -113,27 +116,6 @@ namespace AppInstaller::CLI
                 throw CommandException(Resource::String::InvalidArgumentValueError, s_ArgumentName_Scope, { "user"_lis, "machine"_lis });
             }
         }
-        if (execArgs.Contains(Args::Type::InstallArchitecture))
-        {
-	        Utility::Architecture selectedArch = Utility::ConvertToArchitectureEnum(std::string(execArgs.GetArg(Args::Type::InstallArchitecture)));
-            if ((selectedArch == Utility::Architecture::Unknown) || (Utility::IsApplicableArchitecture(selectedArch) == Utility::InapplicableArchitecture))
-            {
-                std::vector<Utility::LocIndString> applicableArchitectures;
-                for (Utility::Architecture i : Utility::GetApplicableArchitectures())
-                {
-                    applicableArchitectures.emplace_back(Utility::ToString(i));
-                }
-                throw CommandException(Resource::String::InvalidArgumentValueError, s_ArgumentName_Architecture, std::forward<std::vector<Utility::LocIndString>>((applicableArchitectures)));
-            }
-        }
-
-        if (execArgs.Contains(Args::Type::Locale))
-        {
-            if (!Locale::IsWellFormedBcp47Tag(execArgs.GetArg(Args::Type::Locale)))
-            {
-                throw CommandException(Resource::String::InvalidArgumentValueErrorWithoutValidValues, Argument::ForType(Args::Type::Locale).Name(), {});
-            }
-        }
     }
 
     void InstallCommand::ExecuteInternal(Context& context) const
@@ -145,6 +127,7 @@ namespace AppInstaller::CLI
             Workflow::GetManifest <<
             Workflow::SelectInstaller <<
             Workflow::EnsureApplicableInstaller <<
+            Workflow::CheckForUnsupportedArgs <<
             Workflow::InstallSinglePackage;
     }
 }

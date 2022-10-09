@@ -1,10 +1,11 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 #pragma once
+#include <AppInstallerLanguageUtilities.h>
+#include <winget/Certificates.h>
+#include <winget/Registry.h>
+#include <winget/Resources.h>
 
-#include "AppInstallerLanguageUtilities.h"
-#include "winget/Registry.h"
-#include "winget/Resources.h"
 #include <string_view>
 
 using namespace std::string_view_literals;
@@ -78,6 +79,10 @@ namespace AppInstaller::Settings
         std::string Data;
         std::string Identifier;
 
+#ifndef AICLI_DISABLE_TEST_HOOKS
+        Certificates::PinningConfiguration PinningConfiguration;
+#endif
+
         std::string ToJsonString() const;
     };
 
@@ -136,7 +141,7 @@ namespace AppInstaller::Settings
             static std::optional<item_t> ReadAndValidateItem(const Registry::Value& item); \
         )
 
-        POLICY_MAPPING_VALUE_SPECIALIZATION(ValuePolicy::SourceAutoUpdateIntervalInMinutes, uint32_t, "SourceAutoUpdateIntervalInMinutes"sv, Registry::Value::Type::DWord);
+        POLICY_MAPPING_VALUE_SPECIALIZATION(ValuePolicy::SourceAutoUpdateIntervalInMinutes, uint32_t, "SourceAutoUpdateInterval"sv, Registry::Value::Type::DWord);
 
         POLICY_MAPPING_LIST_SPECIALIZATION(ValuePolicy::AdditionalSources, SourceFromPolicy, "AdditionalSources"sv);
         POLICY_MAPPING_LIST_SPECIALIZATION(ValuePolicy::AllowedSources, SourceFromPolicy, "AllowedSources"sv);

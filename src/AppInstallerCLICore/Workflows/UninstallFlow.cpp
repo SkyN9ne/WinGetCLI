@@ -3,15 +3,18 @@
 #include "pch.h"
 #include "UninstallFlow.h"
 #include "WorkflowBase.h"
+#include "DependenciesFlow.h"
 #include "ShellExecuteInstallerHandler.h"
 #include "AppInstallerMsixInfo.h"
-
+#include "PortableFlow.h"
 #include <AppInstallerDeployment.h>
 
 using namespace AppInstaller::CLI::Execution;
 using namespace AppInstaller::Manifest;
 using namespace AppInstaller::Msix;
 using namespace AppInstaller::Repository;
+using namespace AppInstaller::Registry;
+using namespace AppInstaller::CLI::Portable;
 
 namespace AppInstaller::CLI::Workflow
 {
@@ -49,6 +52,20 @@ namespace AppInstaller::CLI::Workflow
 
             std::vector<Item> Items;
         };
+    }
+
+    void UninstallSinglePackage(Execution::Context& context)
+    {
+        context <<
+            Workflow::GetInstalledPackageVersion <<
+            Workflow::EnsureSupportForPortableUninstall <<
+            Workflow::GetUninstallInfo <<
+            Workflow::GetDependenciesInfoForUninstall <<
+            Workflow::ReportDependencies(Resource::String::UninstallCommandReportDependencies) <<
+            Workflow::ReportExecutionStage(ExecutionStage::Execution) <<
+            Workflow::ExecuteUninstaller <<
+            Workflow::ReportExecutionStage(ExecutionStage::PostExecution) <<
+            Workflow::RecordUninstall;
     }
 
     void GetUninstallInfo(Execution::Context& context)
@@ -112,6 +129,25 @@ namespace AppInstaller::CLI::Workflow
             context.Add<Execution::Data::PackageFamilyNames>(packageFamilyNames);
             break;
         }
+        case InstallerTypeEnum::Portable:
+        {
+            auto productCodes = installedPackageVersion->GetMultiProperty(PackageVersionMultiProperty::ProductCode);
+            if (productCodes.empty())
+            {
+                context.Reporter.Error() << Resource::String::NoUninstallInfoFound << std::endl;
+                AICLI_TERMINATE_CONTEXT(APPINSTALLER_CLI_ERROR_NO_UNINSTALL_INFO_FOUND);
+            }
+
+            const std::string installedScope = context.Get<Execution::Data::InstalledPackageVersion>()->GetMetadata()[Repository::PackageVersionMetadata::InstalledScope];
+            const std::string installedArch = context.Get<Execution::Data::InstalledPackageVersion>()->GetMetadata()[Repository::PackageVersionMetadata::InstalledArchitecture];
+            
+            PortableInstaller portableInstaller = PortableInstaller(
+                Manifest::ConvertToScopeEnum(installedScope),
+                Utility::ConvertToArchitectureEnum(installedArch),
+                productCodes[0]);
+            context.Add<Execution::Data::PortableInstaller>(std::move(portableInstaller));
+            break;
+        }
         default:
             THROW_HR(HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED));
         }
@@ -126,15 +162,24 @@ namespace AppInstaller::CLI::Workflow
         case InstallerTypeEnum::Burn:
         case InstallerTypeEnum::Inno:
         case InstallerTypeEnum::Nullsoft:
-            context << Workflow::ShellExecuteUninstallImpl;
+            context <<
+                Workflow::ShellExecuteUninstallImpl <<
+                ReportUninstallerResult("UninstallString", APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED);
             break;
         case InstallerTypeEnum::Msi:
         case InstallerTypeEnum::Wix:
-            context << Workflow::ShellExecuteMsiExecUninstall;
+            context <<
+                Workflow::ShellExecuteMsiExecUninstall <<
+                ReportUninstallerResult("MsiExec", APPINSTALLER_CLI_ERROR_EXEC_UNINSTALL_COMMAND_FAILED);
             break;
         case InstallerTypeEnum::Msix:
         case InstallerTypeEnum::MSStore:
             context << Workflow::MsixUninstall;
+            break;
+        case InstallerTypeEnum::Portable:
+            context <<
+                Workflow::PortableUninstallImpl <<
+                ReportUninstallerResult("PortableUninstall"sv, APPINSTALLER_CLI_ERROR_PORTABLE_UNINSTALL_FAILED, true);
             break;
         default:
         THROW_HR(HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED));
@@ -156,7 +201,16 @@ namespace AppInstaller::CLI::Workflow
             }
 
             AICLI_LOG(CLI, Info, << "Removing MSIX package: " << packageFullName.value());
-            context.Reporter.ExecuteWithProgress(std::bind(Deployment::RemovePackage, packageFullName.value(), std::placeholders::_1));
+            try
+            {
+                context.Reporter.ExecuteWithProgress(std::bind(Deployment::RemovePackage, packageFullName.value(), std::placeholders::_1));
+            }
+            catch (const wil::ResultException& re)
+            {
+                context.Add<Execution::Data::OperationReturnCode>(re.GetErrorCode());
+                context << ReportUninstallerResult("MSIXUninstall"sv, re.GetErrorCode(), /* isHResult */ true);
+                return;
+            }
         }
 
         context.Reporter.Info() << Resource::String::UninstallFlowUninstallSuccess << std::endl;
@@ -182,6 +236,41 @@ namespace AppInstaller::CLI::Workflow
         {
             auto trackingCatalog = item.FromSource.GetTrackingCatalog();
             trackingCatalog.RecordUninstall(item.Identifier);
+        }
+    }
+
+    void ReportUninstallerResult::operator()(Execution::Context& context) const
+    {
+        DWORD uninstallResult = context.Get<Execution::Data::OperationReturnCode>();
+        if (uninstallResult != 0)
+        {
+            const auto installedPackageVersion = context.Get<Execution::Data::InstalledPackageVersion>();
+            Logging::Telemetry().LogUninstallerFailure(
+                installedPackageVersion->GetProperty(PackageVersionProperty::Id),
+                installedPackageVersion->GetProperty(PackageVersionProperty::Version),
+                m_uninstallerType,
+                uninstallResult);
+
+            if (m_isHResult)
+            {
+                context.Reporter.Error() << Resource::String::UninstallFailedWithCode << ' ' << GetUserPresentableMessage(uninstallResult) << std::endl;
+            }
+            else
+            {
+                context.Reporter.Error() << Resource::String::UninstallFailedWithCode << ' ' << uninstallResult << std::endl;
+            }
+
+            // Show installer log path if exists
+            if (context.Contains(Execution::Data::LogPath) && std::filesystem::exists(context.Get<Execution::Data::LogPath>()))
+            {
+                context.Reporter.Info() << Resource::String::InstallerLogAvailable << ' ' << context.Get<Execution::Data::LogPath>().u8string() << std::endl;
+            }
+
+            AICLI_TERMINATE_CONTEXT(m_hr);
+        }
+        else
+        {
+            context.Reporter.Info() << Resource::String::UninstallFlowUninstallSuccess << std::endl;
         }
     }
 }

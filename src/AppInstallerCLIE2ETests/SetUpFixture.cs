@@ -211,12 +211,22 @@ namespace AppInstallerCLIE2ETests
                     experimentalCmd = false,
                     dependencies = false,
                     directMSI = false,
+                    openLogsArgument = false,
                 },
                 debugging = new
                 {
                     enableSelfInitiatedMinidump = true
+                },
+                installBehavior = new
+                {
+                    portablePackageUserRoot = "",
+                    portablePackageMachineRoot = "",
                 }
             };
+
+            // Run winget one time to initialize settings directory
+            // when running in unpackaged context
+            TestCommon.RunAICLICommand(string.Empty, "-v");
 
             var serializedSettingsJson = JsonConvert.SerializeObject(settingsJson, Formatting.Indented);
             File.WriteAllText(Path.Combine(localAppDataPath, TestCommon.SettingsJsonFilePath), serializedSettingsJson);

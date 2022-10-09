@@ -259,9 +259,20 @@ namespace AppInstaller::Repository
     {
         m_isSourceToBeAdded = true;
         SourceDetails details;
-        details.Name = name;
-        details.Arg = arg;
-        details.Type = type;
+
+        std::optional<WellKnownSource> wellKnownSourceCheck = CheckForWellKnownSourceMatch(name, arg, type);
+
+        if (wellKnownSourceCheck)
+        {
+            details = GetWellKnownSourceDetailsInternal(wellKnownSourceCheck.value());
+        }
+        else
+        {
+            details.Name = name;
+            details.Arg = arg;
+            details.Type = type;
+        }
+
         m_sourceReferences.emplace_back(CreateSourceFromDetails(details));
     }
 
@@ -487,7 +498,7 @@ namespace AppInstaller::Repository
 
         if (!m_source)
         {
-            SourceList sourceList;
+            std::unique_ptr<SourceList> sourceList;
 
             // Check for updates before opening.
             for (auto& sourceReference : m_sourceReferences)
@@ -501,9 +512,14 @@ namespace AppInstaller::Repository
                         // to avoid the progress bar fill up multiple times.
                         if (BackgroundUpdateSourceFromDetails(details, progress))
                         {
-                            auto detailsInternal = sourceList.GetSource(details.Name);
+                            if (sourceList == nullptr)
+                            {
+                                sourceList = std::make_unique<SourceList>();
+                            }
+
+                            auto detailsInternal = sourceList->GetSource(details.Name);
                             detailsInternal->LastUpdateTime = details.LastUpdateTime;
-                            sourceList.SaveMetadata(*detailsInternal);
+                            sourceList->SaveMetadata(*detailsInternal);
                         }
                         else
                         {
@@ -585,7 +601,12 @@ namespace AppInstaller::Repository
         }
 
         sourceDetails.LastUpdateTime = Utility::ConvertUnixEpochToSystemClock(0);
-        sourceDetails.Origin = SourceOrigin::User;
+
+        // Allow the origin to stay as Default if the incoming details match a well known value
+        if (!(sourceDetails.Origin == SourceOrigin::Default && CheckForWellKnownSourceMatch(sourceDetails.Name, sourceDetails.Arg, sourceDetails.Type)))
+        {
+            sourceDetails.Origin = SourceOrigin::User;
+        }
 
         bool result = AddSourceFromDetails(sourceDetails, progress);
         if (result)

@@ -7,6 +7,7 @@
 #include <Workflows/WorkflowBase.h>
 #include <Workflows/InstallFlow.h>
 #include <winget/Manifest.h>
+#include <winget/ARPCorrelationAlgorithms.h>
 #include <Microsoft/PredefinedInstalledSourceFactory.h>
 
 using namespace TestCommon;
@@ -16,6 +17,7 @@ using namespace AppInstaller::CLI::Execution;
 using namespace AppInstaller::CLI::Workflow;
 using namespace AppInstaller::Logging;
 using namespace AppInstaller::Repository;
+using namespace AppInstaller::Repository::Correlation;
 
 struct TestTelemetry : public TelemetryTraceLogger
 {
@@ -57,7 +59,7 @@ struct TestContext : public Context
     {
         // Put installer in to control whether arp change code cares to run
         Manifest::ManifestInstaller installer;
-        installer.InstallerType = installerType;
+        installer.BaseInstallerType = installerType;
         Add<Data::Installer>(std::move(installer));
 
         // Put in an empty manifest by default
@@ -204,14 +206,32 @@ struct TestContext : public Context
         }
 };
 
+// Override the correlation heuristic by an empty one to ensure that these tests
+// consider only the exact matching.
+struct TestHeuristicOverride
+{
+    TestHeuristicOverride()
+    {
+        IARPMatchConfidenceAlgorithm::OverrideInstance(&m_algorithm);
+    }
+
+    ~TestHeuristicOverride()
+    {
+        IARPMatchConfidenceAlgorithm::ResetInstance();
+    }
+
+private:
+    EmptyMatchConfidenceAlgorithm m_algorithm;
+};
 
 TEST_CASE("ARPChanges_MSIX_Ignored", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context(Manifest::InstallerTypeEnum::Msix);
 
     context << SnapshotARPEntries;
 
-    REQUIRE(!context.Contains(Data::ARPSnapshot));
+    REQUIRE(!context.Contains(Data::ARPCorrelationData));
 
     context << ReportARPChanges;
 
@@ -220,13 +240,14 @@ TEST_CASE("ARPChanges_MSIX_Ignored", "[ARPChanges][workflow]")
 
 TEST_CASE("ARPChanges_CheckSnapshot", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
 
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
-    auto snapshot = context.Get<Data::ARPSnapshot>();
+    auto snapshot = context.Get<Data::ARPCorrelationData>().GetPreInstallSnapshot();
 
     REQUIRE(context.EverythingResult.Matches.size() == snapshot.size());
 
@@ -254,10 +275,11 @@ TEST_CASE("ARPChanges_CheckSnapshot", "[ARPChanges][workflow]")
 
 TEST_CASE("ARPChanges_NoChange_NoMatch", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context << ReportARPChanges;
     context.ExpectEvent(0, 0, 0);
@@ -265,10 +287,11 @@ TEST_CASE("ARPChanges_NoChange_NoMatch", "[ARPChanges][workflow]")
 
 TEST_CASE("ARPChanges_NoChange_SingleMatch", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddMatchResult("MatchId1", "MatchName1", "MatchPublisher1", "MatchVersion1");
 
@@ -278,10 +301,11 @@ TEST_CASE("ARPChanges_NoChange_SingleMatch", "[ARPChanges][workflow]")
 
 TEST_CASE("ARPChanges_NoChange_MultiMatch", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddMatchResult("MatchId1", "MatchName1", "MatchPublisher1", "MatchVersion1");
     context.AddMatchResult("MatchId2", "MatchName2", "MatchPublisher2", "MatchVersion2");
@@ -292,23 +316,25 @@ TEST_CASE("ARPChanges_NoChange_MultiMatch", "[ARPChanges][workflow]")
 
 TEST_CASE("ARPChanges_SingleChange_NoMatch", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddEverythingResult("EverythingId1", "EverythingName1", "EverythingPublisher1", "EverythingVersion1");
 
     context << ReportARPChanges;
-    context.ExpectEvent(1, 0, 0, context.EverythingResult.Matches.back().Package.get());
+    context.ExpectEvent(1, 0, 0);
 }
 
 TEST_CASE("ARPChanges_SingleChange_SingleMatch", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddEverythingResult("EverythingId1", "EverythingName1", "EverythingPublisher1", "EverythingVersion1");
     context.AddMatchResult("MatchId1", "MatchName1", "MatchPublisher1", "MatchVersion1");
@@ -319,10 +345,11 @@ TEST_CASE("ARPChanges_SingleChange_SingleMatch", "[ARPChanges][workflow]")
 
 TEST_CASE("ARPChanges_SingleChange_MultiMatch", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddEverythingResult("EverythingId1", "EverythingName1", "EverythingPublisher1", "EverythingVersion1");
     context.AddMatchResult("MatchId1", "MatchName1", "MatchPublisher1", "MatchVersion1");
@@ -334,10 +361,11 @@ TEST_CASE("ARPChanges_SingleChange_MultiMatch", "[ARPChanges][workflow]")
 
 TEST_CASE("ARPChanges_MultiChange_NoMatch", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddEverythingResult("EverythingId1", "EverythingName1", "EverythingPublisher1", "EverythingVersion1");
     context.AddEverythingResult("EverythingId2", "EverythingName2", "EverythingPublisher2", "EverythingVersion2");
@@ -348,10 +376,11 @@ TEST_CASE("ARPChanges_MultiChange_NoMatch", "[ARPChanges][workflow]")
 
 TEST_CASE("ARPChanges_MultiChange_SingleMatch_NoOverlap", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddEverythingResult("EverythingId1", "EverythingName1", "EverythingPublisher1", "EverythingVersion1");
     context.AddEverythingResult("EverythingId2", "EverythingName2", "EverythingPublisher2", "EverythingVersion2");
@@ -363,10 +392,11 @@ TEST_CASE("ARPChanges_MultiChange_SingleMatch_NoOverlap", "[ARPChanges][workflow
 
 TEST_CASE("ARPChanges_MultiChange_SingleMatch_Overlap", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddEverythingResult("EverythingId1", "EverythingName1", "EverythingPublisher1", "EverythingVersion1");
     context.AddEverythingResult("EverythingId2", "EverythingName2", "EverythingPublisher2", "EverythingVersion2");
@@ -378,10 +408,11 @@ TEST_CASE("ARPChanges_MultiChange_SingleMatch_Overlap", "[ARPChanges][workflow]"
 
 TEST_CASE("ARPChanges_MultiChange_MultiMatch_NoOverlap", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddEverythingResult("EverythingId1", "EverythingName1", "EverythingPublisher1", "EverythingVersion1");
     context.AddEverythingResult("EverythingId2", "EverythingName2", "EverythingPublisher2", "EverythingVersion2");
@@ -394,10 +425,11 @@ TEST_CASE("ARPChanges_MultiChange_MultiMatch_NoOverlap", "[ARPChanges][workflow]
 
 TEST_CASE("ARPChanges_MultiChange_MultiMatch_SingleOverlap", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddEverythingResult("EverythingId1", "EverythingName1", "EverythingPublisher1", "EverythingVersion1");
     context.AddEverythingResult("EverythingId2", "EverythingName2", "EverythingPublisher2", "EverythingVersion2");
@@ -410,10 +442,11 @@ TEST_CASE("ARPChanges_MultiChange_MultiMatch_SingleOverlap", "[ARPChanges][workf
 
 TEST_CASE("ARPChanges_MultiChange_MultiMatch_MultiOverlap", "[ARPChanges][workflow]")
 {
+    TestHeuristicOverride heuristicOverride;
     TestContext context;
 
     context << SnapshotARPEntries;
-    REQUIRE(context.Contains(Data::ARPSnapshot));
+    REQUIRE(context.Contains(Data::ARPCorrelationData));
 
     context.AddEverythingResult("EverythingId1", "EverythingName1", "EverythingPublisher1", "EverythingVersion1");
     context.MatchResult.Matches.emplace_back(context.EverythingResult.Matches.back());

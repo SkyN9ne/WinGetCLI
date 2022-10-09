@@ -17,13 +17,16 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         hstring GetMetadata(winrt::Microsoft::Management::Deployment::PackageVersionMetadataField const& metadataField);
         hstring Id();
         hstring DisplayName();
+        hstring Publisher();
         hstring Version();
         hstring Channel();
         winrt::Windows::Foundation::Collections::IVectorView<hstring> PackageFamilyNames();
         winrt::Windows::Foundation::Collections::IVectorView<hstring> ProductCodes();
         winrt::Microsoft::Management::Deployment::PackageCatalog PackageCatalog();
         winrt::Microsoft::Management::Deployment::CompareResult CompareToVersion(hstring versionString);
-        
+        // Contract version 4
+        bool HasApplicableInstaller(InstallOptions options);
+
 #if !defined(INCLUDE_ONLY_INTERFACE_METHODS)
     private:
         winrt::Microsoft::Management::Deployment::PackageCatalog m_packageCatalog{ nullptr };

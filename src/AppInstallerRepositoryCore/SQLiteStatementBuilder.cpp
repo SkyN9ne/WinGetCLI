@@ -174,6 +174,15 @@ namespace AppInstaller::Repository::SQLite::Builder
         return *this;
     }
 
+    ColumnBuilder& ColumnBuilder::CollateNoCase(bool isTrue)
+    {
+        if (isTrue)
+        {
+            m_stream << " COLLATE NOCASE";
+        }
+        return *this;
+    }
+
     ColumnBuilder& ColumnBuilder::Default(int64_t value)
     {
         m_stream << " DEFAULT " << value;
@@ -304,6 +313,20 @@ namespace AppInstaller::Repository::SQLite::Builder
     StatementBuilder& StatementBuilder::Where(const QualifiedColumn& column)
     {
         OutputColumns(m_stream, " WHERE ", column);
+        return *this;
+    }
+
+    StatementBuilder& StatementBuilder::WhereValueContainsEmbeddedNullCharacter(std::string_view column)
+    {
+        OutputColumns(m_stream, " WHERE instr(", column);
+        m_stream << ",char(0))>0";
+        return *this;
+    }
+
+    StatementBuilder& StatementBuilder::WhereValueContainsEmbeddedNullCharacter(const QualifiedColumn& column)
+    {
+        OutputColumns(m_stream, " WHERE instr(", column);
+        m_stream << ",char(0))>0";
         return *this;
     }
 

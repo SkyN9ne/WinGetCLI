@@ -5,9 +5,10 @@
 
 namespace AppInstaller::CLI
 {
+
     struct SearchCommand final : public Command
     {
-        SearchCommand(std::string_view parent) : Command("search", parent) {}
+        SearchCommand(std::string_view parent) : Command("search", { "find" }, parent) {}
 
         std::vector<Argument> GetArguments() const override;
 
@@ -19,6 +20,7 @@ namespace AppInstaller::CLI
         std::string HelpLink() const override;
 
     protected:
+        void ValidateArgumentsInternal(Execution::Args& execArgs) const override;
         void ExecuteInternal(Execution::Context& context) const override;
     };
 }

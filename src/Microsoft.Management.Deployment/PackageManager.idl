@@ -2,10 +2,10 @@
 // Licensed under the MIT License.
 namespace Microsoft.Management.Deployment
 {
-    [contractversion(4)]
+    [contractversion(5)]
     apicontract WindowsPackageManagerContract{};
 
-    /// State of the install.
+    /// State of the install
     [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 1)]
     enum PackageInstallProgressState
     {
@@ -70,14 +70,81 @@ namespace Microsoft.Management.Deployment
     runtimeclass InstallResult
     {
         /// Used by a caller to correlate the install with a caller's data.
-        String CorrelationData{ get; };
+        String CorrelationData { get; };
         /// Whether a restart is required to complete the install.
-        Boolean RebootRequired{ get; };
+        Boolean RebootRequired { get; };
 
         /// Batched error code, example APPINSTALLER_CLI_ERROR_SHELLEXEC_INSTALL_FAILED
-        InstallResultStatus Status{ get; };
-        /// Specific error if known, from downloader or installer itself, example ERROR_INSTALL_PACKAGE_REJECTED
-        HRESULT ExtendedErrorCode{ get; };
+        InstallResultStatus Status { get; };
+        /// The error code of the overall operation.
+        HRESULT ExtendedErrorCode { get; };
+
+        [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 4)]
+        {
+            /// The error code from the install attempt. Only valid if the Status is InstallError.
+            /// This value's meaning will require knowledge of the specific installer or install technology.
+            UInt32 InstallerErrorCode { get; };
+        }
+    }
+
+    /// State of the uninstall
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 4)]
+    enum PackageUninstallProgressState
+    {
+        /// The uninstall is queued but not yet active. Cancellation of the IAsyncOperationWithProgress in this 
+        /// state will prevent the package from uninstalling.
+        Queued,
+        /// The uninstall is in progress. Cancellation of the IAsyncOperationWithProgress in this state will not
+        /// stop the installation or the post uninstall steps.
+        Uninstalling,
+        /// The uninstaller has completed and cleanup actions are in progress. Cancellation of the 
+        /// IAsyncOperationWithProgress in this state will not stop cleanup or roll back the uninstall.
+        PostUninstall,
+        /// The operation has completed.
+        Finished,
+    };
+
+    /// Progress object for the uninstall
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 4)]
+    struct UninstallProgress
+    {
+        /// State of the uninstall
+        PackageUninstallProgressState State;
+        /// Uninstall percentage if known.
+        Double UninstallationProgress;
+    };
+
+    /// Status of the uninstall call
+    /// Implementation Note: Errors mapped from AppInstallerErrors.h
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 4)]
+    enum UninstallResultStatus
+    {
+        Ok,
+        BlockedByPolicy,
+        CatalogError,
+        InternalError,
+        InvalidOptions,
+        UninstallError,
+        ManifestError,
+    };
+
+    /// Result of the uninstall
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 4)]
+    runtimeclass UninstallResult
+    {
+        /// Used by a caller to correlate the install with a caller's data.
+        String CorrelationData { get; };
+        /// Whether a restart is required to complete the install.
+        Boolean RebootRequired { get; };
+
+        /// Batched error code, example APPINSTALLER_CLI_ERROR_SHELLEXEC_INSTALL_FAILED
+        UninstallResultStatus Status { get; };
+        /// The error code of the overall operation.
+        HRESULT ExtendedErrorCode { get; };
+
+        /// The error code from the uninstall attempt. Only valid if the Status is UninstallError.
+        /// This value's meaning will require knowledge of the specific uninstaller or install technology.
+        UInt32 UninstallerErrorCode { get; };
     }
 
     /// IMPLEMENTATION NOTE: SourceOrigin from winget/RepositorySource.h
@@ -199,6 +266,15 @@ namespace Microsoft.Management.Deployment
             CompareResult CompareToVersion(String versionString);
         }
 
+        [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 4)]
+        {
+            /// Checks if this package version has at least one applicable installer.
+            Boolean HasApplicableInstaller(InstallOptions options);
+
+            /// Gets the publisher string for this package version, if one is available.
+            String Publisher { get; };
+        }
+
         /// DESIGN NOTE:
         /// GetManifest from IPackageVersion in winget/RepositorySearch is not implemented in V1. That class has 
         /// a lot of fields and no one requesting it.
@@ -219,6 +295,130 @@ namespace Microsoft.Management.Deployment
         String Channel { get; };
     };
 
+    /// The package installer type.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 5)]
+    enum PackageInstallerType
+    {
+        /// Unknown type.
+        Unknown,
+        /// Inno type.
+        Inno,
+        /// Wix type.
+        Wix,
+        /// Msi type.
+        Msi,
+        /// Nullsoft type.
+        Nullsoft,
+        /// Zip type.
+        Zip,
+        /// Msix or Appx type.
+        Msix,
+        /// Exe type.
+        Exe,
+        /// Burn type.
+        Burn,
+        /// MSStore type.
+        MSStore,
+        /// Portable type.
+        Portable,
+    };
+
+    /// The package installer scope.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 5)]
+    enum PackageInstallerScope
+    {
+        /// Scope not declared.
+        Unknown,
+        /// User scope.
+        User,
+        /// System scope.
+        System,
+    };
+
+    /// Interface for retrieving information about a package installer.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 5)]
+    runtimeclass PackageInstallerInfo
+    {
+        /// The package installer type.
+        PackageInstallerType InstallerType { get; };
+        /// The nested package installer type for archives.
+        PackageInstallerType NestedInstallerType { get; };
+        /// The package installer architecture.
+        Windows.System.ProcessorArchitecture Architecture { get; };
+        /// The package installer scope.
+        PackageInstallerScope Scope { get; };
+        /// The package installer locale.
+        String Locale{ get; };
+    };
+
+    /// The installed status type. The values need to match InstalledStatusType from winget/RepositorySearch.h.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 5)]
+    [flags]
+    enum InstalledStatusType
+    {
+        /// None is checked.
+        None = 0x0,
+        /// Check Apps and Features entry.
+        AppsAndFeaturesEntry = 0x0001,
+        /// Check Apps and Features entry install location if applicable.
+        AppsAndFeaturesEntryInstallLocation = 0x0002,
+        /// Check Apps and Features entry install location with installed files if applicable.
+        AppsAndFeaturesEntryInstallLocationFile = 0x0004,
+        /// Check default install location if applicable.
+        DefaultInstallLocation = 0x0008,
+        /// Check default install location with installed files if applicable.
+        DefaultInstallLocationFile = 0x0010,
+
+        /// Below are helper values for calling CheckInstalledStatus as input.
+        /// AppsAndFeaturesEntry related checks
+        AllAppsAndFeaturesEntryChecks = AppsAndFeaturesEntry | AppsAndFeaturesEntryInstallLocation | AppsAndFeaturesEntryInstallLocationFile,
+        /// DefaultInstallLocation related checks
+        AllDefaultInstallLocationChecks = DefaultInstallLocation | DefaultInstallLocationFile,
+        /// All checks
+        AllChecks = AllAppsAndFeaturesEntryChecks | AllDefaultInstallLocationChecks,
+    };
+
+    /// Interface representing an individual installed status.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 5)]
+    runtimeclass InstalledStatus
+    {
+        /// The installed status type.
+        InstalledStatusType Type { get; };
+        /// The installed status path.
+        String Path { get; };
+        /// The installed status result.
+        HRESULT Status { get; };
+    };
+
+    /// Interface for retrieving information about a package installer installed status.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 5)]
+    runtimeclass PackageInstallerInstalledStatus
+    {
+        /// The package installer info.
+        PackageInstallerInfo InstallerInfo { get; };
+        /// A list of various types of installed status of the package installer.
+        Windows.Foundation.Collections.IVectorView<InstalledStatus> InstallerInstalledStatus { get; };
+    };
+
+    /// Status of the check installed status call.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 5)]
+    enum CheckInstalledStatusResultStatus
+    {
+        Ok,
+        InternalError,
+    };
+
+    /// Interface for retrieving information about a package installer installed status.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 5)]
+    runtimeclass CheckInstalledStatusResult
+    {
+        /// Status of the check installed status call.
+        CheckInstalledStatusResultStatus Status { get; };
+
+        /// A list of package installer installed status.
+        Windows.Foundation.Collections.IVectorView<PackageInstallerInstalledStatus> PackageInstalledStatus { get; };
+    };
+
     /// IMPLEMENTATION NOTE: IPackage from winget/RepositorySearch.h
     /// A package, potentially containing information about it's local state and the available versions.
     [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 1)]
@@ -230,7 +430,7 @@ namespace Microsoft.Management.Deployment
         String Name { get; };
 
         /// Gets the installed package information if the package is installed.
-        PackageVersionInfo InstalledVersion{ get; };
+        PackageVersionInfo InstalledVersion { get; };
 
         /// Gets all available versions of this package. Ordering is not guaranteed.
         Windows.Foundation.Collections.IVectorView<PackageVersionId> AvailableVersions { get; };
@@ -243,6 +443,17 @@ namespace Microsoft.Management.Deployment
 
         /// Gets a value indicating whether an available version is newer than the installed version.
         Boolean IsUpdateAvailable { get; };
+
+        [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 5)]
+        {
+            /// Check the installed status of the package. For more accurate and complete installed status, it's required to
+            /// call this method from a composite package from a newly created package catalog with installed info.
+            /// This may require downloading information from a server.
+            Windows.Foundation.IAsyncOperation<CheckInstalledStatusResult> CheckInstalledStatusAsync(InstalledStatusType checkTypes);
+            CheckInstalledStatusResult CheckInstalledStatus(InstalledStatusType checkTypes);
+            Windows.Foundation.IAsyncOperation<CheckInstalledStatusResult> CheckInstalledStatusAsync();
+            CheckInstalledStatusResult CheckInstalledStatus();
+        }
 
         /// DESIGN NOTE:
         /// IsSame from IPackage in winget/RepositorySearch is not implemented in V1.
@@ -475,6 +686,13 @@ namespace Microsoft.Management.Deployment
         User,
         /// Only System installers will be valid
         System,
+        [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 5)]
+        {
+            /// Both User and Unknown install scope installers are valid
+            UserOrUnknown,
+            /// Both System and Unknown install scope installers are valid
+            SystemOrUnknown,
+        }
     };
 
     [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 1)]
@@ -506,7 +724,7 @@ namespace Microsoft.Management.Deployment
         PackageInstallScope PackageInstallScope;
         /// Silent, Interactive, or Default
         PackageInstallMode PackageInstallMode;
-        /// Directs the logging to a log file. If provided, the installer must have have write access to the file 
+        /// Directs the logging to a log file. If provided, the installer must have write access to the file 
         String LogOutputPath;
         /// Continues the install even if the hash in the catalog does not match the linked installer.
         Boolean AllowHashMismatch;
@@ -535,6 +753,39 @@ namespace Microsoft.Management.Deployment
             /// Allow the upgrade to continue for upgrade packages with manifest versions Unknown.
             Boolean AllowUpgradeToUnknownVersion;
         }
+    }
+
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 4)]
+    enum PackageUninstallMode
+    {
+        /// The default experience for the installer. Installer may show some UI.
+        Default,
+        /// Runs the installer in silent mode. This suppresses the installer's UI to the extent 
+        /// possible (installer may still show some required UI).
+        Silent,
+        /// Runs the installer in interactive mode.
+        Interactive,
+    };
+
+    /// Options when uninstalling a package.
+    /// Intended to allow full compatibility with the "winget uninstall" command line interface.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 4)]
+    runtimeclass UninstallOptions
+    {
+        UninstallOptions();
+
+        /// Optionally specifies the version from the package to uninstall. If unspecified the version matching 
+        /// CatalogPackage.GetLatestVersion() is used.
+        PackageVersionId PackageVersionId;
+
+        /// Silent, Interactive, or Default
+        PackageUninstallMode PackageUninstallMode;
+        /// Directs the logging to a log file. If provided, the installer must have write access to the file 
+        String LogOutputPath;
+
+        /// Used by a caller to correlate the install with a caller's data.
+        /// The string must be JSON encoded.
+        String CorrelationData;
     }
 
     [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 1)]
@@ -569,7 +820,39 @@ namespace Microsoft.Management.Deployment
         {
             /// Upgrade the specified package
             Windows.Foundation.IAsyncOperationWithProgress<InstallResult, InstallProgress> UpgradePackageAsync(CatalogPackage package, InstallOptions options);
+
+            /// Uninstall the specified package
+            Windows.Foundation.IAsyncOperationWithProgress<UninstallResult, UninstallProgress> UninstallPackageAsync(CatalogPackage package, UninstallOptions options);
+
+            /// Get uninstall progress
+            Windows.Foundation.IAsyncOperationWithProgress<UninstallResult, UninstallProgress> GetUninstallProgress(CatalogPackage package, PackageCatalogInfo catalogInfo);
         }
+    }
+
+    /// Global settings for PackageManager operations.
+    /// This settings should be invoked prior to invocation of PackageManager class.
+    /// This settings is only exposed in in-proc Com invocation.
+    [contract(Microsoft.Management.Deployment.WindowsPackageManagerContract, 4)]
+    runtimeclass PackageManagerSettings
+    {
+        PackageManagerSettings();
+
+        /// Sets caller name to be used in telemetry logging. Default value is the calling process name.
+        /// Call this before any PackageManager operations.
+        /// Returns true if successful, false if caller name is already set.
+        /// This is a one time setup, multiple calls will not override existing caller name.
+        Boolean SetCallerIdentifier(String callerIdentifier);
+
+        /// Sets state name for state separation. If not set, state will be written in a default location and states may be affected by other callers.
+        /// Call this before any PackageManager operations.
+        /// Returns true if successful, false if state name is already set.
+        /// This is a one time setup, multiple calls will not override existing state name.
+        Boolean SetStateIdentifier(String stateIdentifier);
+
+        /// Sets custom UserSettings.
+        /// Returns true if successful, false if settingsContent cannot be parsed or UserSettings is already created.
+        /// This is a one time setup, multiple calls will not override existing UserSettings.
+        Boolean SetUserSettings(String settingsContent);
     }
 
     /// Force midl3 to generate vector marshalling info. 
@@ -593,6 +876,10 @@ namespace Microsoft.Management.Deployment
         interface Windows.Foundation.Collections.IVectorView<InstallOptions>;
         interface Windows.Foundation.Collections.IVector<InstallResult>;
         interface Windows.Foundation.Collections.IVectorView<InstallResult>;
+        interface Windows.Foundation.Collections.IVector<UninstallOptions>;
+        interface Windows.Foundation.Collections.IVectorView<UninstallOptions>;
+        interface Windows.Foundation.Collections.IVector<UninstallResult>;
+        interface Windows.Foundation.Collections.IVectorView<UninstallResult>;
         interface Windows.Foundation.Collections.IVector<MatchResult>;
         interface Windows.Foundation.Collections.IVectorView<MatchResult>;
         interface Windows.Foundation.Collections.IVector<PackageMatchFilter>;
@@ -601,5 +888,13 @@ namespace Microsoft.Management.Deployment
         interface Windows.Foundation.Collections.IVectorView<PackageVersionId>;
         interface Windows.Foundation.Collections.IVector<PackageVersionInfo>;
         interface Windows.Foundation.Collections.IVectorView<PackageVersionInfo>;
+        interface Windows.Foundation.Collections.IVector<PackageInstallerInfo>;
+        interface Windows.Foundation.Collections.IVectorView<PackageInstallerInfo>;
+        interface Windows.Foundation.Collections.IVector<InstalledStatus>;
+        interface Windows.Foundation.Collections.IVectorView<InstalledStatus>;
+        interface Windows.Foundation.Collections.IVector<PackageInstallerInstalledStatus>;
+        interface Windows.Foundation.Collections.IVectorView<PackageInstallerInstalledStatus>;
+        interface Windows.Foundation.Collections.IVector<CheckInstalledStatusResult>;
+        interface Windows.Foundation.Collections.IVectorView<CheckInstalledStatusResult>;
     }
 }

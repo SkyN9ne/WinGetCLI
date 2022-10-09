@@ -4,6 +4,7 @@
 #include "WorkflowBase.h"
 #include "ExecutionContext.h"
 #include "ManifestComparator.h"
+#include "PromptFlow.h"
 #include "TableOutput.h"
 #include <winget/ManifestYamlParser.h>
 
@@ -31,14 +32,29 @@ namespace AppInstaller::CLI::Workflow
             }
         }
 
-        void ReportIdentity(Execution::Context& context, std::string_view name, std::string_view id)
+        void ReportIdentity(
+            Execution::Context& context,
+            Utility::LocIndView prefix,
+            std::optional<Resource::StringId> label,
+            std::string_view name,
+            std::string_view id,
+            std::string_view version = {},
+            Execution::Reporter::Level level = Execution::Reporter::Level::Info)
         {
-            context.Reporter.Info() << Resource::String::ReportIdentityFound << ' ' << Execution::NameEmphasis << name << " [" << Execution::IdEmphasis << id << ']' << std::endl;
-        }
+            auto out = context.Reporter.GetOutputStream(level);
+            out << prefix;
+            if (label)
+            {
+                out << *label << ' ';
+            }
+            out << Execution::NameEmphasis << name << " ["_liv << Execution::IdEmphasis << id << ']';
 
-        void ReportIdentity(Execution::Context& context, std::string_view name, std::string_view id, std::string_view version)
-        {
-            context.Reporter.Info() << Resource::String::ReportIdentityFound << ' ' << Execution::NameEmphasis << name << " [" << Execution::IdEmphasis << id << "] " << Resource::String::ShowVersion << ' ' << version << std::endl;
+            if (!version.empty())
+            {
+                out << ' ' << Resource::String::ShowVersion << ' ' << version;
+            }
+
+            out << std::endl;
         }
 
         Repository::Source OpenNamedSource(Execution::Context& context, std::string_view sourceName)
@@ -133,6 +149,11 @@ namespace AppInstaller::CLI::Workflow
                 searchRequest.Filters.emplace_back(PackageMatchFilter(PackageMatchField::Moniker, matchType, args.GetArg(Execution::Args::Type::Moniker)));
             }
 
+            if (args.Contains(Execution::Args::Type::ProductCode))
+            {
+                searchRequest.Filters.emplace_back(PackageMatchFilter(PackageMatchField::ProductCode, matchType, args.GetArg(Execution::Args::Type::ProductCode)));
+            }
+
             if (args.Contains(Execution::Args::Type::Tag))
             {
                 searchRequest.Filters.emplace_back(PackageMatchFilter(PackageMatchField::Tag, matchType, args.GetArg(Execution::Args::Type::Tag)));
@@ -149,69 +170,42 @@ namespace AppInstaller::CLI::Workflow
             }
         }
 
-        bool HandleSourceAgreementsForOneSource(Execution::Context& context, const Source& source)
+        // Data shown on a line of a table displaying installed packages
+        struct InstalledPackagesTableLine
         {
-            auto details = source.GetDetails();
-            AICLI_LOG(CLI, Verbose, << "Checking Source agreements for source: " << details.Name);
+            InstalledPackagesTableLine(Utility::LocIndString name, Utility::LocIndString id, Utility::LocIndString installedVersion, Utility::LocIndString availableVersion, Utility::LocIndString source)
+                : Name(name), Id(id), InstalledVersion(installedVersion), AvailableVersion(availableVersion), Source(source) {}
 
-            if (source.CheckSourceAgreements())
-            {
-                AICLI_LOG(CLI, Verbose, << "Source agreements satisfied. Source: " << details.Name);
-                return true;
-            }
+            Utility::LocIndString Name;
+            Utility::LocIndString Id;
+            Utility::LocIndString InstalledVersion;
+            Utility::LocIndString AvailableVersion;
+            Utility::LocIndString Source;
+        };
 
-            // Show source agreements
-            std::string agreementsTitleMessage = Resource::LocString{ Resource::String::SourceAgreementsTitle };
-            context.Reporter.Info() << Execution::SourceInfoEmphasis <<
-                Utility::LocIndString{ Utility::FindAndReplaceMessageToken(agreementsTitleMessage, details.Name) } << std::endl;
-
-            const auto& agreements = source.GetInformation().SourceAgreements;
-
-            for (const auto& agreement : agreements)
-            {
-                if (!agreement.Label.empty())
+        void OutputInstalledPackagesTable(Execution::Context& context, const std::vector<InstalledPackagesTableLine>& lines)
+        {
+            Execution::TableOutput<5> table(context.Reporter,
                 {
-                    context.Reporter.Info() << Execution::SourceInfoEmphasis << Utility::LocIndString{ agreement.Label } << ": "_liv;
-                }
+                    Resource::String::SearchName,
+                    Resource::String::SearchId,
+                    Resource::String::SearchVersion,
+                    Resource::String::AvailableHeader,
+                    Resource::String::SearchSource
+                });
 
-                if (!agreement.Text.empty())
-                {
-                    context.Reporter.Info() << Utility::LocIndString{ agreement.Text } << std::endl;
-                }
-
-                if (!agreement.Url.empty())
-                {
-                    context.Reporter.Info() << Utility::LocIndString{ agreement.Url } << std::endl;
-                }
-            }
-
-            // Show message for each individual implicit agreement field
-            auto fields = source.GetAgreementFieldsFromSourceInformation();
-            if (WI_IsFlagSet(fields, ImplicitAgreementFieldEnum::Market))
+            for (const auto& line : lines)
             {
-                context.Reporter.Info() << Resource::String::SourceAgreementsMarketMessage << std::endl;
+                table.OutputLine({
+                    line.Name,
+                    line.Id,
+                    line.InstalledVersion,
+                    line.AvailableVersion,
+                    line.Source
+                    });
             }
 
-            context.Reporter.Info() << std::endl;
-
-            bool accepted = context.Args.Contains(Execution::Args::Type::AcceptSourceAgreements);
-
-            if (!accepted)
-            {
-                accepted = context.Reporter.PromptForBoolResponse(Resource::String::SourceAgreementsPrompt);
-            }
-
-            if (accepted)
-            {
-                AICLI_LOG(CLI, Verbose, << "Source agreements accepted. Source: " << details.Name);
-                source.SaveAcceptedSourceAgreements();
-            }
-            else
-            {
-                AICLI_LOG(CLI, Verbose, << "Source agreements rejected. Source: " << details.Name);
-            }
-
-            return accepted;
+            table.Complete();
         }
     }
 
@@ -478,7 +472,6 @@ namespace AppInstaller::CLI::Workflow
             // Regardless of match type, always use an exact match for the system reference strings.
             searchRequest.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::PackageFamilyName, MatchType::Exact, query));
             searchRequest.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::ProductCode, MatchType::Exact, query));
-
             searchRequest.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::Id, matchType, query));
             searchRequest.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::Name, matchType, query));
             searchRequest.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::Moniker, matchType, query));
@@ -697,17 +690,11 @@ namespace AppInstaller::CLI::Workflow
     {
         auto& searchResult = context.Get<Execution::Data::SearchResult>();
 
-        Execution::TableOutput<5> table(context.Reporter,
-            {
-                Resource::String::SearchName,
-                Resource::String::SearchId,
-                Resource::String::SearchVersion,
-                Resource::String::AvailableHeader,
-                Resource::String::SearchSource
-            });
+        std::vector<InstalledPackagesTableLine> lines;
+        std::vector<InstalledPackagesTableLine> linesForExplicitUpgrade;
 
         int availableUpgradesCount = 0;
-        int unknownPackagesCount = 0;
+        int packagesWithUnknownVersionSkipped = 0;
         auto &source = context.Get<Execution::Data::Source>();
         bool shouldShowSource = source.IsComposite() && source.GetAvailableSources().size() > 1;
 
@@ -720,10 +707,10 @@ namespace AppInstaller::CLI::Workflow
                 auto latestVersion = match.Package->GetLatestAvailableVersion();
                 bool updateAvailable = match.Package->IsUpdateAvailable();
 
-                if (m_onlyShowUpgrades && !context.Args.Contains(Execution::Args::Type::IncludeUnknown) && Utility::Version(installedVersion->GetProperty(PackageVersionProperty::Version)).IsUnknown())
+                if (m_onlyShowUpgrades && !context.Args.Contains(Execution::Args::Type::IncludeUnknown) && Utility::Version(installedVersion->GetProperty(PackageVersionProperty::Version)).IsUnknown() && updateAvailable)
                 {
                     // We are only showing upgrades, and the user did not request to include packages with unknown versions.
-                    unknownPackagesCount++;
+                    ++packagesWithUnknownVersionSkipped;
                     continue;
                 }
 
@@ -734,30 +721,44 @@ namespace AppInstaller::CLI::Workflow
 
                     if (latestVersion)
                     {
+                        // Always show the source for correlated packages
+                        sourceName = latestVersion->GetProperty(PackageVersionProperty::SourceName);
+
                         if (updateAvailable)
                         {
                             availableVersion = latestVersion->GetProperty(PackageVersionProperty::Version);
                             availableUpgradesCount++;
                         }
-
-                        // Always show the source for correlated packages
-                        sourceName = latestVersion->GetProperty(PackageVersionProperty::SourceName);
                     }
 
-                    table.OutputLine({
-                        match.Package->GetProperty(PackageProperty::Name),
-                        match.Package->GetProperty(PackageProperty::Id),
-                        installedVersion->GetProperty(PackageVersionProperty::Version),
-                        availableVersion,
-                        shouldShowSource ? sourceName : ""s
-                        });
+                    // Output using the local PackageName instead of the name in the manifest, to prevent confusion for packages that add multiple
+                    // Add/Remove Programs entries.
+                    // TODO: De-duplicate this list, and only show (by default) one entry per matched package.
+                    InstalledPackagesTableLine line(
+                         installedVersion->GetProperty(PackageVersionProperty::Name),
+                         match.Package->GetProperty(PackageProperty::Id),
+                         installedVersion->GetProperty(PackageVersionProperty::Version),
+                         availableVersion,
+                         shouldShowSource ? sourceName : Utility::LocIndString()
+                    );
+
+                    auto pinnedState = ConvertToPackagePinnedStateEnum(installedVersion->GetMetadata()[PackageVersionMetadata::PinnedState]);
+                    bool requiresExplicitUpgrade = m_onlyShowUpgrades && pinnedState != PackagePinnedState::NotPinned;
+                    if (requiresExplicitUpgrade)
+                    {
+                        linesForExplicitUpgrade.push_back(std::move(line));
+                    }
+                    else
+                    {
+                        lines.push_back(std::move(line));
+                    }
                 }
             }
         }
 
-        table.Complete();
+        OutputInstalledPackagesTable(context, lines);
 
-        if (table.IsEmpty())
+        if (lines.empty())
         {
             context.Reporter.Info() << Resource::String::NoInstalledPackageFound << std::endl;
         }
@@ -773,11 +774,21 @@ namespace AppInstaller::CLI::Workflow
                 context.Reporter.Info() << availableUpgradesCount << ' ' << Resource::String::AvailableUpgrades << std::endl;
             }
         }
-        if (m_onlyShowUpgrades && unknownPackagesCount > 0 && !context.Args.Contains(Execution::Args::Type::IncludeUnknown))
+
+        if (!linesForExplicitUpgrade.empty())
         {
-            context.Reporter.Info() << unknownPackagesCount << " " << (unknownPackagesCount == 1 ? Resource::String::UpgradeUnknownCountSingle : Resource::String::UpgradeUnknownCount) << std::endl;
+            context.Reporter.Info() << std::endl << Resource::String::UpgradeAvailableForPinned << std::endl;
+            OutputInstalledPackagesTable(context, linesForExplicitUpgrade);
         }
 
+        if (m_onlyShowUpgrades)
+        {
+            if (packagesWithUnknownVersionSkipped > 0)
+            {
+                AICLI_LOG(CLI, Info, << packagesWithUnknownVersionSkipped << " package(s) skipped due to unknown installed version");
+                context.Reporter.Info() << packagesWithUnknownVersionSkipped << " " << Resource::String::UpgradeUnknownVersionCount << std::endl;
+            }
+        }
     }
 
     void EnsureMatchesFromSearchResult::operator()(Execution::Context& context) const
@@ -936,19 +947,19 @@ namespace AppInstaller::CLI::Workflow
     void ReportPackageIdentity(Execution::Context& context)
     {
         auto package = context.Get<Execution::Data::Package>();
-        ReportIdentity(context, package->GetProperty(PackageProperty::Name), package->GetProperty(PackageProperty::Id));
+        ReportIdentity(context, {}, Resource::String::ReportIdentityFound, package->GetProperty(PackageProperty::Name), package->GetProperty(PackageProperty::Id));
     }
 
     void ReportManifestIdentity(Execution::Context& context)
     {
         const auto& manifest = context.Get<Execution::Data::Manifest>();
-        ReportIdentity(context, manifest.CurrentLocalization.Get<Manifest::Localization::PackageName>(), manifest.Id);
+        ReportIdentity(context, {}, Resource::String::ReportIdentityFound, manifest.CurrentLocalization.Get<Manifest::Localization::PackageName>(), manifest.Id);
     }
 
-    void ReportManifestIdentityWithVersion(Execution::Context& context)
+    void ReportManifestIdentityWithVersion::operator()(Execution::Context& context) const
     {
         const auto& manifest = context.Get<Execution::Data::Manifest>();
-        ReportIdentity(context, manifest.CurrentLocalization.Get<Manifest::Localization::PackageName>(), manifest.Id, manifest.Version);
+        ReportIdentity(context, m_prefix, m_label, manifest.CurrentLocalization.Get<Manifest::Localization::PackageName>(), manifest.Id, manifest.Version, m_level);
     }
 
     void GetManifest(Execution::Context& context)
@@ -974,30 +985,10 @@ namespace AppInstaller::CLI::Workflow
         bool isUpdate = WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::InstallerExecutionUseUpdate);
 
         IPackageVersion::Metadata installationMetadata;
-        
+
         if (isUpdate)
         {
             installationMetadata = context.Get<Execution::Data::InstalledPackageVersion>()->GetMetadata();
-        }
-        if (context.Args.Contains(Execution::Args::Type::InstallArchitecture))
-        {
-            // arguments override settings.
-            context.Add<Execution::Data::AllowedArchitectures>({ Utility::ConvertToArchitectureEnum(std::string(context.Args.GetArg(Execution::Args::Type::InstallArchitecture))) });
-        }
-        else 
-        {
-            std::vector<Utility::Architecture> requiredArchitectures = Settings::User().Get<Settings::Setting::InstallArchitectureRequirement>();
-            std::vector<Utility::Architecture> optionalArchitectures = Settings::User().Get<Settings::Setting::InstallArchitecturePreference>();
-
-            if (!requiredArchitectures.empty())
-            {
-                context.Add<Execution::Data::AllowedArchitectures>({ requiredArchitectures.begin(), requiredArchitectures.end() });
-            }
-            else if (!optionalArchitectures.empty())
-            {
-                optionalArchitectures.emplace_back(Utility::Architecture::Unknown);
-                context.Add<Execution::Data::AllowedArchitectures>({ optionalArchitectures.begin(), optionalArchitectures.end() });
-            }
         }
 
         ManifestComparator manifestComparator(context, installationMetadata);
@@ -1018,7 +1009,7 @@ namespace AppInstaller::CLI::Workflow
             Logging::Telemetry().LogSelectedInstaller(
                 static_cast<int>(installer->Arch),
                 installer->Url,
-                Manifest::InstallerTypeToString(installer->InstallerType),
+                Manifest::InstallerTypeToString(installer->EffectiveInstallerType()),
                 Manifest::ScopeToString(installer->Scope),
                 installer->Locale);
         }
@@ -1063,6 +1054,11 @@ namespace AppInstaller::CLI::Workflow
             {
                 searchRequest.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::ProductCode, MatchType::Exact, installer.ProductCode));
             }
+            else if (installer.EffectiveInstallerType() == Manifest::InstallerTypeEnum::Portable)
+            {
+                const auto& productCode = Utility::MakeSuitablePathPart(manifest.Id + "_" + source.GetIdentifier());
+                searchRequest.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::ProductCode, MatchType::CaseInsensitive, Utility::Normalize(productCode)));
+            }
 
             if (!searchRequest.Inclusions.empty())
             {
@@ -1079,7 +1075,17 @@ namespace AppInstaller::CLI::Workflow
         // If we cannot find a package using PackageFamilyName or ProductId, try manifest Id and Name pair
         SearchRequest searchRequest;
         searchRequest.Inclusions.emplace_back(PackageMatchFilter(PackageMatchField::Id, MatchType::CaseInsensitive, manifest.Id));
+        
         // In case there are same Ids from different sources, filter the result using package name
+        for (const auto& localization : manifest.Localizations)
+        {
+            const auto& localizedPackageName = localization.Get<Manifest::Localization::PackageName>();
+            if (!localizedPackageName.empty())
+            {
+                searchRequest.Filters.emplace_back(PackageMatchField::Name, MatchType::CaseInsensitive, localizedPackageName);
+            }
+        }
+
         searchRequest.Filters.emplace_back(PackageMatchFilter(PackageMatchField::Name, MatchType::CaseInsensitive, manifest.DefaultLocalization.Get<Manifest::Localization::PackageName>()));
 
         context.Add<Execution::Data::SearchResult>(source.Search(searchRequest));
@@ -1093,38 +1099,6 @@ namespace AppInstaller::CLI::Workflow
     void ReportExecutionStage::operator()(Execution::Context& context) const
     {
         context.SetExecutionStage(m_stage);
-    }
-
-    void HandleSourceAgreements::operator()(Execution::Context& context) const
-    {
-        if (WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::AgreementsAcceptedByCaller))
-        {
-            AICLI_LOG(CLI, Info, << "Skipping source agreements acceptance check because AgreementsAcceptedByCaller flag is set.");
-            return;
-        }
-
-        bool allAccepted = true;
-
-        if (m_source.IsComposite())
-        {
-            for (auto const& source : m_source.GetAvailableSources())
-            {
-                if (!HandleSourceAgreementsForOneSource(context, source))
-                {
-                    allAccepted = false;
-                }
-            }
-        }
-        else
-        {
-            allAccepted = HandleSourceAgreementsForOneSource(context, m_source);
-        }
-
-        if (!allAccepted)
-        {
-            context.Reporter.Error() << Resource::String::SourceAgreementsNotAgreedTo << std::endl;
-            AICLI_TERMINATE_CONTEXT(APPINSTALLER_CLI_ERROR_SOURCE_AGREEMENTS_NOT_ACCEPTED);
-        }
     }
 }
 

@@ -201,8 +201,38 @@ namespace AppInstaller::Repository::Rest
                     return Utility::LocIndString{ m_versionInfo.VersionAndChannel.GetVersion().ToString() };
                 case PackageVersionProperty::Channel:
                     return Utility::LocIndString{ m_versionInfo.VersionAndChannel.GetChannel().ToString() };
+                case PackageVersionProperty::Publisher:
+                    return Utility::LocIndString{ m_package->PackageInfo().Publisher };
+                case PackageVersionProperty::ArpMinVersion:
+                    if (!m_versionInfo.ArpVersions.empty())
+                    {
+                        return Utility::LocIndString{ m_versionInfo.ArpVersions.front().ToString() };
+                    }
+                    else if (m_versionInfo.Manifest)
+                    {
+                        auto arpVersionRange = m_versionInfo.Manifest->GetArpVersionRange();
+                        return arpVersionRange.IsEmpty() ? Utility::LocIndString{} : Utility::LocIndString{ arpVersionRange.GetMinVersion().ToString() };
+                    }
+                    else
+                    {
+                        return {};
+                    }
+                case PackageVersionProperty::ArpMaxVersion:
+                    if (!m_versionInfo.ArpVersions.empty())
+                    {
+                        return Utility::LocIndString{ m_versionInfo.ArpVersions.back().ToString() };
+                    }
+                    else if (m_versionInfo.Manifest)
+                    {
+                        auto arpVersionRange = m_versionInfo.Manifest->GetArpVersionRange();
+                        return arpVersionRange.IsEmpty() ? Utility::LocIndString{} : Utility::LocIndString{ arpVersionRange.GetMaxVersion().ToString() };
+                    }
+                    else
+                    {
+                        return {};
+                    }
                 default:
-                    return Utility::LocIndString{};
+                    return {};
                 }
             }
 
@@ -221,6 +251,12 @@ namespace AppInstaller::Repository::Rest
                     for (std::string productCode : m_versionInfo.ProductCodes)
                     {
                         result.emplace_back(Utility::LocIndString{ productCode });
+                    }
+                    break;
+                case PackageVersionMultiProperty::UpgradeCode:
+                    for (std::string upgradeCode : m_versionInfo.UpgradeCodes)
+                    {
+                        result.emplace_back(Utility::LocIndString{ upgradeCode });
                     }
                     break;
                 case PackageVersionMultiProperty::Name:

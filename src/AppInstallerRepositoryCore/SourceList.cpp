@@ -6,6 +6,10 @@
 #include "Microsoft/PreIndexedPackageSourceFactory.h"
 #include "Rest/RestSourceFactory.h"
 
+#include <winget/AdminSettings.h>
+#include <winget/Certificates.h>
+#include <CertificateResources.h>
+
 using namespace AppInstaller::Settings;
 using namespace std::string_view_literals;
 
@@ -28,7 +32,7 @@ namespace AppInstaller::Repository
         constexpr std::string_view s_MetadataYaml_Source_AcceptedAgreementFields = "AcceptedAgreementFields"sv;
 
         constexpr std::string_view s_Source_WingetCommunityDefault_Name = "winget"sv;
-        constexpr std::string_view s_Source_WingetCommunityDefault_Arg = "https://winget.azureedge.net/cache"sv;
+        constexpr std::string_view s_Source_WingetCommunityDefault_Arg = "https://cdn.winget.microsoft.com/cache"sv;
         constexpr std::string_view s_Source_WingetCommunityDefault_Data = "Microsoft.Winget.Source_8wekyb3d8bbwe"sv;
         constexpr std::string_view s_Source_WingetCommunityDefault_Identifier = "Microsoft.Winget.Source_8wekyb3d8bbwe"sv;
 
@@ -37,7 +41,7 @@ namespace AppInstaller::Repository
         constexpr std::string_view s_Source_MSStoreDefault_Identifier = "StoreEdgeFD"sv;
 
         constexpr std::string_view s_Source_DesktopFrameworks_Name = "microsoft.builtin.desktop.frameworks"sv;
-        constexpr std::string_view s_Source_DesktopFrameworks_Arg = "https://winget.azureedge.net/platform"sv;
+        constexpr std::string_view s_Source_DesktopFrameworks_Arg = "https://cdn.winget.microsoft.com/platform"sv;
         constexpr std::string_view s_Source_DesktopFrameworks_Data = "Microsoft.Winget.Platform.Source_8wekyb3d8bbwe"sv;
         constexpr std::string_view s_Source_DesktopFrameworks_Identifier = "Microsoft.Winget.Platform.Source_8wekyb3d8bbwe"sv;
 
@@ -249,6 +253,26 @@ namespace AppInstaller::Repository
         return {};
     }
 
+    std::optional<WellKnownSource> CheckForWellKnownSourceMatch(std::string_view name, std::string_view arg, std::string_view type)
+    {
+        if (name == s_Source_WingetCommunityDefault_Name && arg == s_Source_WingetCommunityDefault_Arg && type == Microsoft::PreIndexedPackageSourceFactory::Type())
+        {
+            return WellKnownSource::WinGet;
+        }
+
+        if (name == s_Source_MSStoreDefault_Name && arg == s_Source_MSStoreDefault_Arg && type == Rest::RestSourceFactory::Type())
+        {
+            return WellKnownSource::MicrosoftStore;
+        }
+
+        if (name == s_Source_DesktopFrameworks_Name && arg == s_Source_DesktopFrameworks_Arg && type == Microsoft::PreIndexedPackageSourceFactory::Type())
+        {
+            return WellKnownSource::DesktopFrameworks;
+        }
+
+        return {};
+    }
+
     SourceDetailsInternal GetWellKnownSourceDetailsInternal(WellKnownSource source)
     {
         switch (source)
@@ -275,6 +299,23 @@ namespace AppInstaller::Repository
             details.Identifier = s_Source_MSStoreDefault_Identifier;
             details.TrustLevel = SourceTrustLevel::Trusted;
             details.SupportInstalledSearchCorrelation = false;
+
+            if (!Settings::IsAdminSettingEnabled(Settings::AdminSetting::BypassCertificatePinningForMicrosoftStore))
+            {
+                using namespace AppInstaller::Certificates;
+
+                PinningChain chain;
+                auto chainElement = chain.Root();
+                chainElement->LoadCertificate(IDX_CERTIFICATE_STORE_ROOT_1).SetPinning(PinningVerificationType::PublicKey);
+                chainElement = chainElement.Next();
+                chainElement->LoadCertificate(IDX_CERTIFICATE_STORE_INTERMEDIATE_1).SetPinning(PinningVerificationType::Subject | PinningVerificationType::Issuer);
+                chainElement = chainElement.Next();
+                chainElement->LoadCertificate(IDX_CERTIFICATE_STORE_LEAF_1).SetPinning(PinningVerificationType::Subject | PinningVerificationType::Issuer);
+
+                details.CertificatePinningConfiguration = PinningConfiguration("Microsoft Store Source");
+                details.CertificatePinningConfiguration.AddChain(std::move(chain));
+            }
+
             return details;
         }
         case WellKnownSource::DesktopFrameworks:
@@ -588,12 +629,14 @@ namespace AppInstaller::Repository
         {
             if (GroupPolicies().GetState(TogglePolicy::Policy::AdditionalSources) == PolicyState::Enabled)
             {
+                AICLI_LOG(Repo, Verbose, << "Additional sources GP is enabled...");
                 auto additionalSourcesOpt = GroupPolicies().GetValueRef<ValuePolicy::AdditionalSources>();
                 if (additionalSourcesOpt.has_value())
                 {
                     const auto& additionalSources = additionalSourcesOpt->get();
                     for (const auto& additionalSource : additionalSources)
                     {
+                        AICLI_LOG(Repo, Verbose, << "... with configured source " << additionalSource.Name);
                         SourceDetailsInternal details;
                         details.Name = additionalSource.Name;
                         details.Type = additionalSource.Type;
@@ -601,9 +644,20 @@ namespace AppInstaller::Repository
                         details.Data = additionalSource.Data;
                         details.Identifier = additionalSource.Identifier;
                         details.Origin = SourceOrigin::GroupPolicy;
+#ifndef AICLI_DISABLE_TEST_HOOKS
+                        details.CertificatePinningConfiguration = additionalSource.PinningConfiguration;
+#endif
                         result.emplace_back(std::move(details));
                     }
                 }
+                else
+                {
+                    AICLI_LOG(Repo, Verbose, << "... but has no values.");
+                }
+            }
+            else
+            {
+                AICLI_LOG(Repo, Verbose, << "Additional sources GP is not enabled.");
             }
         }
         break;

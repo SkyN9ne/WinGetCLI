@@ -156,6 +156,8 @@ namespace AppInstaller
                 return "Source agreements were not agreed to";
             case APPINSTALLER_CLI_ERROR_CUSTOMHEADER_EXCEEDS_MAXLENGTH:
                 return "Header size exceeds the allowable limit of 1024 characters. Please reduce the size and try again.";
+            case APPINSTALLER_CLI_ERROR_MISSING_RESOURCE_FILE:
+                return "Missing resource file";
             case APPINSTALLER_CLI_ERROR_MSI_INSTALL_FAILED:
                 return "Running MSI install failed";
             case APPINSTALLER_CLI_ERROR_INVALID_MSIEXEC_ARGUMENT:
@@ -172,12 +174,28 @@ namespace AppInstaller
                 return "The upgrade version is not newer than the installed version";
             case APPINSTALLER_CLI_ERROR_UPGRADE_VERSION_UNKNOWN:
                 return "Upgrade version is unknown and override is not specified";
+            case APPINSTALLER_CLI_ERROR_ICU_CONVERSION_ERROR:
+                return "ICU conversion error";
+            case APPINSTALLER_CLI_ERROR_PORTABLE_INSTALL_FAILED:
+                return "Failed to install portable package";
+            case APPINSTALLER_CLI_ERROR_PORTABLE_REPARSE_POINT_NOT_SUPPORTED:
+                return "Volume does not support reparse points.";
+            case APPINSTALLER_CLI_ERROR_PORTABLE_SYMLINK_PATH_IS_DIRECTORY:
+                return "Unable to create symlink, path points to a directory.";
+            case APPINSTALLER_CLI_ERROR_INSTALLER_PROHIBITS_ELEVATION:
+                return "The installer cannot be run from an administrator context.";
+            case APPINSTALLER_CLI_ERROR_PORTABLE_UNINSTALL_FAILED:
+                return "Failed to uninstall portable package";
+            case APPINSTALLER_CLI_ERROR_ARP_VERSION_VALIDATION_FAILED:
+                return "Failed to validate DisplayVersion values against index.";
+            case APPINSTALLER_CLI_ERROR_INSTALL_LOCATION_REQUIRED:
+                return "Install location required but not provided";
             case APPINSTALLER_CLI_ERROR_INSTALL_PACKAGE_IN_USE:
                 return "Application is currently running.Exit the application then try again.";
             case APPINSTALLER_CLI_ERROR_INSTALL_INSTALL_IN_PROGRESS:
                 return "Another installation is already in progress.Try again later.";
             case APPINSTALLER_CLI_ERROR_INSTALL_FILE_IN_USE:
-                return "One or more file is being used.Exit the application then try again.";
+                return "One or more file is being used. Exit the application then try again.";
             case APPINSTALLER_CLI_ERROR_INSTALL_MISSING_DEPENDENCY:
                 return "This package has a dependency missing from your system.";
             case APPINSTALLER_CLI_ERROR_INSTALL_DISK_FULL:
@@ -202,6 +220,16 @@ namespace AppInstaller
                 return "A higher version of this application is already installed.";
             case APPINSTALLER_CLI_ERROR_INSTALL_BLOCKED_BY_POLICY:
                 return "Organization policies are preventing installation. Contact your admin.";
+            case APPINSTALLER_CLI_ERROR_INSTALL_DEPENDENCIES:
+                return "Failed to install package dependencies.";
+            case APPINSTALLER_CLI_ERROR_BIND_WITH_EMBEDDED_NULL:
+                return "Embedded null characters are disallowed for SQLite";
+            case APPINSTALLER_CLI_ERROR_PINNED_CERTIFICATE_MISMATCH:
+                return "The server certificate did not match any of the expected values.";
+            case APPINSTALLER_CLI_ERROR_NESTEDINSTALLER_NOT_FOUND:
+                return "Failed to find the nested installer in the archive.";
+            case APPINSTALLER_CLI_ERROR_NESTEDINSTALLER_INVALID_PATH:
+                return "Invalid relative file path to nested installer provided.";
             default:
                 return "Unknown Error Code";
             }
