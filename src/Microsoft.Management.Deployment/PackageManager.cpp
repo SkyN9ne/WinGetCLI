@@ -349,6 +349,10 @@ namespace winrt::Microsoft::Management::Deployment::implementation
             {
                 context->Args.AddArg(Execution::Args::Type::HashOverride);
             }
+            if (options.Force())
+            {
+                context->Args.AddArg(Execution::Args::Type::Force);
+            }
 
             // If the PackageInstallScope is anything other than ::Any then set it as a requirement.
             auto manifestScope = GetManifestScope(options.PackageInstallScope());
@@ -375,6 +379,11 @@ namespace winrt::Microsoft::Management::Deployment::implementation
             if (!options.ReplacementInstallerArguments().empty())
             {
                 context->Args.AddArg(Execution::Args::Type::Override, ::AppInstaller::Utility::ConvertToUTF8(options.ReplacementInstallerArguments()));
+            }
+
+            if (!options.AdditionalInstallerArguments().empty())
+            {
+                context->Args.AddArg(Execution::Args::Type::CustomSwitches, ::AppInstaller::Utility::ConvertToUTF8(options.AdditionalInstallerArguments()));
             }
 
             if (options.AllowedArchitectures().Size() != 0)
@@ -406,6 +415,10 @@ namespace winrt::Microsoft::Management::Deployment::implementation
                 context->Args.AddArg(Execution::Args::Type::Log, ::AppInstaller::Utility::ConvertToUTF8(options.LogOutputPath()));
                 context->Args.AddArg(Execution::Args::Type::VerboseLogs);
             }
+            if (options.Force())
+            {
+                context->Args.AddArg(Execution::Args::Type::Force);
+            }
 
             if (options.PackageUninstallMode() == PackageUninstallMode::Interactive)
             {
@@ -414,6 +427,12 @@ namespace winrt::Microsoft::Management::Deployment::implementation
             else if (options.PackageUninstallMode() == PackageUninstallMode::Silent)
             {
                 context->Args.AddArg(Execution::Args::Type::Silent);
+            }
+
+            auto uninstallScope = GetManifestUninstallScope(options.PackageUninstallScope());
+            if (uninstallScope != ::AppInstaller::Manifest::ScopeEnum::Unknown)
+            {
+                context->Args.AddArg(Execution::Args::Type::InstallScope, ScopeToString(uninstallScope));
             }
         }
     }

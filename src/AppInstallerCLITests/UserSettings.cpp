@@ -419,12 +419,16 @@ TEST_CASE("SettingsPortablePackageUserRoot", "[settings]")
     SECTION("Relative path")
     {
         DeleteUserSettingsFiles();
-        std::string_view json = R"({ "installBehavior": { "portablePackageUserRoot": %LOCALAPPDATA%/Portable/Root } })";
+        std::string_view json = R"({ "installBehavior": { "portablePackageUserRoot": "%LOCALAPPDATA%/Portable/Root" } })";
         SetSetting(Stream::PrimaryUserSettings, json);
         UserSettingsTest userSettingTest;
         
         REQUIRE(userSettingTest.Get<Setting::PortablePackageUserRoot>().empty());
-        REQUIRE(userSettingTest.GetWarnings().size() == 1);
+
+        auto warnings = userSettingTest.GetWarnings();
+        REQUIRE(warnings.size() == 1);
+        REQUIRE(warnings[0].Message == AppInstaller::StringResource::String::SettingsWarningInvalidFieldValue);
+        REQUIRE(warnings[0].Path == ".installBehavior.portablePackageUserRoot");
     }
     SECTION("Valid path")
     {
@@ -443,12 +447,16 @@ TEST_CASE("SettingsPortablePackageMachineRoot", "[settings]")
     SECTION("Relative path")
     {
         DeleteUserSettingsFiles();
-        std::string_view json = R"({ "installBehavior": { "portablePackageMachineRoot": %LOCALAPPDATA%/Portable/Root } })";
+        std::string_view json = R"({ "installBehavior": { "portablePackageMachineRoot": "%LOCALAPPDATA%/Portable/Root" } })";
         SetSetting(Stream::PrimaryUserSettings, json);
         UserSettingsTest userSettingTest;
 
         REQUIRE(userSettingTest.Get<Setting::PortablePackageMachineRoot>().empty());
-        REQUIRE(userSettingTest.GetWarnings().size() == 1);
+
+        auto warnings = userSettingTest.GetWarnings();
+        REQUIRE(warnings.size() == 1);
+        REQUIRE(warnings[0].Message == AppInstaller::StringResource::String::SettingsWarningInvalidFieldValue);
+        REQUIRE(warnings[0].Path == ".installBehavior.portablePackageMachineRoot");
     }
     SECTION("Valid path")
     {
@@ -459,5 +467,45 @@ TEST_CASE("SettingsPortablePackageMachineRoot", "[settings]")
 
         REQUIRE(userSettingTest.Get<Setting::PortablePackageMachineRoot>() == "C:/Foo/Bar");
         REQUIRE(userSettingTest.GetWarnings().size() == 0);
+    }
+}
+
+TEST_CASE("SettingsInstallScope", "[settings]")
+{
+    SECTION("User scope preference")
+    {
+        DeleteUserSettingsFiles();
+        std::string_view json = R"({ "installBehavior": { "preferences": { "scope": "user" } } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::InstallScopePreference>() == AppInstaller::Manifest::ScopeEnum::User);
+    }
+    SECTION("Machine scope preference")
+    {
+        DeleteUserSettingsFiles();
+        std::string_view json = R"({ "installBehavior": { "preferences": { "scope": "machine" } } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::InstallScopePreference>() == AppInstaller::Manifest::ScopeEnum::Machine);
+    }
+    SECTION("User scope requirement")
+    {
+        DeleteUserSettingsFiles();
+        std::string_view json = R"({ "installBehavior": { "requirements": { "scope": "user" } } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::InstallScopeRequirement>() == AppInstaller::Manifest::ScopeEnum::User);
+    }
+    SECTION("Machine scope requirement")
+    {
+        DeleteUserSettingsFiles();
+        std::string_view json = R"({ "installBehavior": { "requirements": { "scope": "machine" } } })";
+        SetSetting(Stream::PrimaryUserSettings, json);
+        UserSettingsTest userSettingTest;
+
+        REQUIRE(userSettingTest.Get<Setting::InstallScopeRequirement>() == AppInstaller::Manifest::ScopeEnum::Machine);
     }
 }

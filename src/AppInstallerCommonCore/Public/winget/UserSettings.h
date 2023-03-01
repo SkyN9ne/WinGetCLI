@@ -5,6 +5,7 @@
 #include "AppInstallerLogging.h"
 #include "winget/GroupPolicy.h"
 #include "winget/Resources.h"
+#include "winget/ManifestCommon.h"
 
 #include <filesystem>
 #include <map>
@@ -43,14 +44,6 @@ namespace AppInstaller::Settings
         Rainbow,
     };
 
-    // The preferred scope for installs.
-    enum class ScopePreference
-    {
-        None,
-        User,
-        Machine,
-    };
-
     // The download code to use for *installers*.
     enum class InstallerDownloader
     {
@@ -77,8 +70,8 @@ namespace AppInstaller::Settings
         EFExperimentalArg,
         EFDependencies,
         EFDirectMSI,
-        EFZipInstall,
-        EFOpenLogsArgument,
+        EFPinning,
+        EFUninstallPreviousArgument,
         // Telemetry
         TelemetryDisable,
         // Install behavior
@@ -96,6 +89,7 @@ namespace AppInstaller::Settings
         // Network
         NetworkDownloader,
         NetworkDOProgressTimeoutInSeconds,
+        NetworkWingetAlternateSourceURL,
         // Logging
         LoggingLevelPreference,
         // Uninstall behavior
@@ -146,15 +140,15 @@ namespace AppInstaller::Settings
         SETTINGMAPPING_SPECIALIZATION(Setting::EFExperimentalArg, bool, bool, false, ".experimentalFeatures.experimentalArg"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::EFDependencies, bool, bool, false, ".experimentalFeatures.dependencies"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::EFDirectMSI, bool, bool, false, ".experimentalFeatures.directMSI"sv);
-        SETTINGMAPPING_SPECIALIZATION(Setting::EFZipInstall, bool, bool, false, ".experimentalFeatures.zipInstall"sv);
-        SETTINGMAPPING_SPECIALIZATION(Setting::EFOpenLogsArgument, bool, bool, false, ".experimentalFeatures.openLogsArgument"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::EFPinning, bool, bool, false, ".experimentalFeatures.pinning"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::EFUninstallPreviousArgument, bool, bool, false, ".experimentalFeatures.uninstallPreviousArgument"sv);
         // Telemetry
         SETTINGMAPPING_SPECIALIZATION(Setting::TelemetryDisable, bool, bool, false, ".telemetry.disable"sv);
         // Install behavior
         SETTINGMAPPING_SPECIALIZATION(Setting::InstallArchitecturePreference, std::vector<std::string>, std::vector<Utility::Architecture>, {}, ".installBehavior.preferences.architectures"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::InstallArchitectureRequirement, std::vector<std::string>, std::vector<Utility::Architecture>, {}, ".installBehavior.requirements.architectures"sv);
-        SETTINGMAPPING_SPECIALIZATION(Setting::InstallScopePreference, std::string, ScopePreference, ScopePreference::User, ".installBehavior.preferences.scope"sv);
-        SETTINGMAPPING_SPECIALIZATION(Setting::InstallScopeRequirement, std::string, ScopePreference, ScopePreference::None, ".installBehavior.requirements.scope"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::InstallScopePreference, std::string, Manifest::ScopeEnum, Manifest::ScopeEnum::User, ".installBehavior.preferences.scope"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::InstallScopeRequirement, std::string, Manifest::ScopeEnum, Manifest::ScopeEnum::Unknown, ".installBehavior.requirements.scope"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::InstallLocalePreference, std::vector<std::string>, std::vector<std::string>, {}, ".installBehavior.preferences.locale"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::InstallLocaleRequirement, std::vector<std::string>, std::vector<std::string>, {}, ".installBehavior.requirements.locale"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::InstallIgnoreWarnings, bool, bool, false, ".installBehavior.ignoreWarnings"sv);
@@ -167,6 +161,7 @@ namespace AppInstaller::Settings
         // Network
         SETTINGMAPPING_SPECIALIZATION(Setting::NetworkDownloader, std::string, InstallerDownloader, InstallerDownloader::Default, ".network.downloader"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::NetworkDOProgressTimeoutInSeconds, uint32_t, std::chrono::seconds, 60s, ".network.doProgressTimeoutInSeconds"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::NetworkWingetAlternateSourceURL, bool, bool, true, ".network.enableWingetAlternateSourceURL"sv);
         // Debug
         SETTINGMAPPING_SPECIALIZATION(Setting::EnableSelfInitiatedMinidump, bool, bool, false, ".debugging.enableSelfInitiatedMinidump"sv);
         // Logging
@@ -197,14 +192,14 @@ namespace AppInstaller::Settings
                 Message(message), Path(settingPath), Data(settingValue), IsFieldWarning(isField) {}
 
             StringResource::StringId Message;
-            std::string Path;
-            std::string Data;
+            Utility::LocIndString Path;
+            Utility::LocIndString Data;
             bool IsFieldWarning = true;
         };
 
         static UserSettings const& Instance(const std::optional<std::string>& content = std::nullopt);
 
-        static std::filesystem::path SettingsFilePath();
+        static std::filesystem::path SettingsFilePath(bool forDisplay = false);
 
         UserSettings(const UserSettings&) = delete;
         UserSettings& operator=(const UserSettings&) = delete;

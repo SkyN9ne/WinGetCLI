@@ -25,6 +25,8 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         void AllowHashMismatch(bool value);
         hstring ReplacementInstallerArguments();
         void ReplacementInstallerArguments(hstring const& value);
+        hstring AdditionalInstallerArguments();
+        void AdditionalInstallerArguments(hstring const& value);
         hstring CorrelationData();
         void CorrelationData(hstring const& value);
         hstring AdditionalPackageCatalogArguments();
@@ -32,6 +34,8 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         winrt::Windows::Foundation::Collections::IVector<winrt::Windows::System::ProcessorArchitecture> AllowedArchitectures();
         bool AllowUpgradeToUnknownVersion();
         void AllowUpgradeToUnknownVersion(bool value);
+        bool Force();
+        void Force(bool value);
 
 #if !defined(INCLUDE_ONLY_INTERFACE_METHODS)
     private:
@@ -42,11 +46,13 @@ namespace winrt::Microsoft::Management::Deployment::implementation
         std::wstring m_logOutputPath = L"";
         bool m_allowHashMismatch = false;
         std::wstring m_replacementInstallerArguments = L"";
+        std::wstring m_additionalInstallerArguments = L"";
         std::wstring m_correlationData = L"";
         std::wstring m_additionalPackageCatalogArguments = L"";
         Windows::Foundation::Collections::IVector<Windows::System::ProcessorArchitecture> m_allowedArchitectures{
             winrt::single_threaded_vector<winrt::Windows::System::ProcessorArchitecture>() };
         bool m_allowUpgradeToUnknownVersion = false;
+        bool m_force = false;
 #endif
     };
 }

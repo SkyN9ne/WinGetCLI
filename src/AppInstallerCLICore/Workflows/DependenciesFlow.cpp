@@ -48,13 +48,13 @@ namespace AppInstaller::CLI::Workflow
             if (dependencies.HasAnyOf(DependencyType::WindowsFeature))
             {
                 info << "  - " << Resource::String::WindowsFeaturesDependencies << std::endl;
-                dependencies.ApplyToType(DependencyType::WindowsFeature, [&info](Dependency dependency) {info << "      " << dependency.Id << std::endl; });
+                dependencies.ApplyToType(DependencyType::WindowsFeature, [&info](Dependency dependency) {info << "      " << dependency.Id() << std::endl; });
             }
 
             if (dependencies.HasAnyOf(DependencyType::WindowsLibrary))
             {
                 info << "  - " << Resource::String::WindowsLibrariesDependencies << std::endl;
-                dependencies.ApplyToType(DependencyType::WindowsLibrary, [&info](Dependency dependency) {info << "      " << dependency.Id << std::endl; });
+                dependencies.ApplyToType(DependencyType::WindowsLibrary, [&info](Dependency dependency) {info << "      " << dependency.Id() << std::endl; });
             }
 
             if (dependencies.HasAnyOf(DependencyType::Package))
@@ -62,7 +62,7 @@ namespace AppInstaller::CLI::Workflow
                 info << "  - " << Resource::String::PackageDependencies << std::endl;
                 dependencies.ApplyToType(DependencyType::Package, [&info](Dependency dependency)
                     {
-                        info << "      " << dependency.Id;
+                        info << "      " << dependency.Id();
                         if (dependency.MinVersion)
                         {
                             info << " [>= " << dependency.MinVersion.value().ToString() << "]";
@@ -74,7 +74,7 @@ namespace AppInstaller::CLI::Workflow
             if (dependencies.HasAnyOf(DependencyType::External))
             {
                 context.Reporter.Warn() << "  - " << Resource::String::ExternalDependencies << std::endl;
-                dependencies.ApplyToType(DependencyType::External, [&info](Dependency dependency) {info << "      " << dependency.Id << std::endl; });
+                dependencies.ApplyToType(DependencyType::External, [&info](Dependency dependency) {info << "      " << dependency.Id() << std::endl; });
             }
         }
     }
@@ -122,14 +122,14 @@ namespace AppInstaller::CLI::Workflow
             const auto& packageVersion = context.Get<Execution::Data::PackageVersion>();
             context.Add<Execution::Data::DependencySource>(packageVersion->GetSource());
             context <<
-                Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed, true);
+                Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed, true, Repository::CompositeSearchBehavior::AvailablePackages);
         }
         else
         {
             // install from manifest requires --dependency-source to be set
             context <<
                 Workflow::OpenSource(true) <<
-                Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed, true);
+                Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed, true, Repository::CompositeSearchBehavior::AvailablePackages);
         }
     }
 
@@ -180,7 +180,7 @@ namespace AppInstaller::CLI::Workflow
                         std::move(nodeProcessor.GetPackageInstalledVersion()),
                         std::move(nodeProcessor.GetManifest()),
                         std::move(nodeProcessor.GetPreferredInstaller()) };
-                    idToPackageMap.emplace(node.Id, std::move(dependencyPackageCandidate));
+                    idToPackageMap.emplace(node.Id(), std::move(dependencyPackageCandidate));
                 };
 
                 return list;
@@ -205,7 +205,7 @@ namespace AppInstaller::CLI::Workflow
 
         for (auto const& node : installationOrder)
         {
-            auto itr = idToPackageMap.find(node.Id);
+            auto itr = idToPackageMap.find(node.Id());
             // if the package was already installed (with a useful version) or is the root
             // then there will be no installer for it on the map.
             if (itr != idToPackageMap.end())
@@ -242,7 +242,7 @@ namespace AppInstaller::CLI::Workflow
         }
 
         // Install dependencies in the correct order
-        context.Add<Execution::Data::PackagesToInstall>(std::move(dependencyPackageContexts));
-        context << Workflow::InstallMultiplePackages(m_dependencyReportMessage, APPINSTALLER_CLI_ERROR_INSTALL_DEPENDENCIES, {}, false, true);
+        context.Add<Execution::Data::PackageSubContexts>(std::move(dependencyPackageContexts));
+        context << Workflow::InstallMultiplePackages(m_dependencyReportMessage, APPINSTALLER_CLI_ERROR_INSTALL_DEPENDENCIES, {}, false, true, true);
     }
 }

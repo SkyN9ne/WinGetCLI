@@ -4,25 +4,24 @@
 // </copyright>
 // -----------------------------------------------------------------------------
 
-#pragma warning disable SA1200 // Using directives should be placed correctly
-using Windows.System;
-#pragma warning restore SA1200 // Using directives should be placed correctly
-
 namespace Microsoft.WinGet.Client.Commands
 {
     using System.Management.Automation;
     using Microsoft.Management.Deployment;
+    using Microsoft.WinGet.Client.Commands.Common;
     using Microsoft.WinGet.Client.Common;
+    using Microsoft.WinGet.Client.Properties;
+    using Windows.System;
 
     /// <summary>
     /// Installs a package from the pipeline or from a configured source.
     /// </summary>
     [Cmdlet(
         VerbsLifecycle.Install,
-        Constants.PackageNoun,
+        Constants.WinGetNouns.Package,
         DefaultParameterSetName = Constants.FoundSet,
         SupportsShouldProcess = true)]
-    [OutputType(typeof(InstallResult))]
+    [OutputType(typeof(PSObjects.InstallResult))]
     public sealed class InstallPackageCommand : BaseInstallCommand
     {
         private ProcessorArchitecture architecture;
@@ -67,11 +66,12 @@ namespace Microsoft.WinGet.Client.Commands
             {
                 InstallOptions options = this.GetInstallOptions(version);
                 InstallResult result = this.InstallPackage(package, options);
-                this.WriteObject(result);
+                this.WriteObject(new PSObjects.InstallResult(result));
             });
         }
 
         /// <inheritdoc />
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Interoperability", "CA1416:Validate platform compatibility", Justification = "Targets Windows 10.0.17763.0")]
         protected override InstallOptions GetInstallOptions(PackageVersionId version)
         {
             InstallOptions options = base.GetInstallOptions(version);
@@ -91,7 +91,7 @@ namespace Microsoft.WinGet.Client.Commands
         {
             var operation = PackageManager.Value.InstallPackageAsync(package, options);
             return this.RegisterCallbacksAndWait(operation, string.Format(
-                Utilities.ResourceManager.GetString("ProgressRecordActivityInstalling"),
+                Resources.ProgressRecordActivityInstalling,
                 package.Name));
         }
     }

@@ -68,16 +68,6 @@ namespace AppInstaller::CLI::Workflow
                 AICLI_TERMINATE_CONTEXT(APPINSTALLER_CLI_ERROR_PORTABLE_REPARSE_POINT_NOT_SUPPORTED);
             }
         }
-
-        void EnsureRunningAsAdminForMachineScopeInstall(Execution::Context& context)
-        {
-            // Admin is required for machine scope install or else creating a symlink in the %PROGRAMFILES% link location will fail.
-            Manifest::ScopeEnum scope = ConvertToScopeEnum(context.Args.GetArg(Execution::Args::Type::InstallScope));
-            if (scope == Manifest::ScopeEnum::Machine)
-            {
-                context << Workflow::EnsureRunningAsAdmin;
-            }
-        }
     }
 
     void VerifyPackageAndSourceMatch(Execution::Context& context)
@@ -99,8 +89,7 @@ namespace AppInstaller::CLI::Workflow
         {
             if (packageIdentifier != portableInstaller.WinGetPackageIdentifier || sourceIdentifier != portableInstaller.WinGetSourceIdentifier)
             {
-                // TODO: Replace HashOverride with --Force when argument behavior gets updated.
-                if (!context.Args.Contains(Execution::Args::Type::HashOverride))
+                if (!context.Args.Contains(Execution::Args::Type::Force))
                 {
                     AICLI_LOG(CLI, Error, << "Registry match failed, skipping write to uninstall registry");
                     context.Reporter.Error() << Resource::String::PortablePackageAlreadyExists << std::endl;
@@ -133,7 +122,17 @@ namespace AppInstaller::CLI::Workflow
         }
         else
         {
-            scope = Manifest::ConvertToScopeEnum(context.Args.GetArg(Execution::Args::Type::InstallScope));
+            if (context.Args.Contains(Execution::Args::Type::InstallScope))
+            {
+                scope = Manifest::ConvertToScopeEnum(context.Args.GetArg(Execution::Args::Type::InstallScope));
+            }
+            else
+            {
+                Manifest::ScopeEnum requiredScope = Settings::User().Get<Settings::Setting::InstallScopeRequirement>();
+                Manifest::ScopeEnum preferredScope = Settings::User().Get<Settings::Setting::InstallScopePreference>();
+
+                scope = requiredScope != Manifest::ScopeEnum::Unknown ? requiredScope : preferredScope;
+            }
         }
 
         Utility::Architecture arch = context.Get<Execution::Data::Installer>()->Arch;
@@ -265,7 +264,7 @@ namespace AppInstaller::CLI::Workflow
 
             if (!portableInstaller.VerifyExpectedState())
             {
-                if (context.Args.Contains(Execution::Args::Type::HashOverride))
+                if (context.Args.Contains(Execution::Args::Type::Force))
                 {
                     context.Reporter.Warn() << Resource::String::PortableHashMismatchOverridden << std::endl;
                 }
@@ -304,8 +303,7 @@ namespace AppInstaller::CLI::Workflow
 
             if (!portableInstaller.VerifyExpectedState())
             {
-                // TODO: replace with appropriate --force argument when available.
-                if (context.Args.Contains(Execution::Args::Type::HashOverride))
+                if (context.Args.Contains(Execution::Args::Type::Force))
                 {
                     context.Reporter.Warn() << Resource::String::PortableHashMismatchOverridden << std::endl;
                 }
@@ -336,23 +334,8 @@ namespace AppInstaller::CLI::Workflow
         if (installerType == InstallerTypeEnum::Portable)
         {
             context <<
-                EnsureRunningAsAdminForMachineScopeInstall <<
                 EnsureValidArgsForPortableInstall <<
                 EnsureVolumeSupportsReparsePoints;
-        }
-    }
-
-    void EnsureSupportForPortableUninstall(Execution::Context& context)
-    {
-        auto installedPackageVersion = context.Get<Execution::Data::InstalledPackageVersion>();
-        const std::string installedTypeString = installedPackageVersion->GetMetadata()[PackageVersionMetadata::InstalledType];
-        if (ConvertToInstallerTypeEnum(installedTypeString) == InstallerTypeEnum::Portable)
-        {
-            const std::string installedScope = installedPackageVersion->GetMetadata()[Repository::PackageVersionMetadata::InstalledScope];
-            if (ConvertToScopeEnum(installedScope) == Manifest::ScopeEnum::Machine)
-            {
-                context << EnsureRunningAsAdmin;
-            }
         }
     }
 }

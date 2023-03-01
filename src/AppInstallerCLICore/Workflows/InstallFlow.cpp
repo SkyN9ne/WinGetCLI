@@ -4,6 +4,7 @@
 #include "InstallFlow.h"
 #include "DownloadFlow.h"
 #include "UninstallFlow.h"
+#include "UpdateFlow.h"
 #include "ShowFlow.h"
 #include "Resources.h"
 #include "ShellExecuteInstallerHandler.h"
@@ -14,6 +15,7 @@
 #include "WorkflowBase.h"
 #include "DependenciesFlow.h"
 #include "PromptFlow.h"
+#include <AppInstallerMsixInfo.h>
 #include <AppInstallerDeployment.h>
 #include <winget/ARPCorrelation.h>
 #include <winget/Archive.h>
@@ -74,18 +76,6 @@ namespace AppInstaller::CLI::Workflow
             }
         }
 
-        // TODO: Remove check once feature becomes stable
-        void EnsureFeatureEnabledForArchiveInstall(Execution::Context& context)
-        {
-            auto installer = context.Get<Execution::Data::Installer>().value();
-
-            if (IsArchiveType(installer.BaseInstallerType))
-            {
-                context <<
-                    Workflow::EnsureFeatureEnabled(Settings::ExperimentalFeature::Feature::ZipInstall);
-            }
-        }
-
         Execution::Args::Type GetUnsupportedArgumentType(UnsupportedArgumentEnum unsupportedArgument)
         {
             Execution::Args::Type execArg;
@@ -128,6 +118,8 @@ namespace AppInstaller::CLI::Workflow
                     return ExpectedReturnCode(returnCode, APPINSTALLER_CLI_ERROR_INSTALL_DISK_FULL, Resource::String::InstallFlowReturnCodeDiskFull);
                 case ExpectedReturnCodeEnum::InsufficientMemory:
                     return ExpectedReturnCode(returnCode, APPINSTALLER_CLI_ERROR_INSTALL_INSUFFICIENT_MEMORY, Resource::String::InstallFlowReturnCodeInsufficientMemory);
+                case ExpectedReturnCodeEnum::InvalidParameter:
+                    return ExpectedReturnCode(returnCode, APPINSTALLER_CLI_ERROR_INSTALL_INVALID_PARAMETER, Resource::String::InstallFlowReturnCodeInvalidParameter);
                 case ExpectedReturnCodeEnum::NoNetwork:
                     return ExpectedReturnCode(returnCode, APPINSTALLER_CLI_ERROR_INSTALL_NO_NETWORK, Resource::String::InstallFlowReturnCodeNoNetwork);
                 case ExpectedReturnCodeEnum::ContactSupport:
@@ -146,6 +138,8 @@ namespace AppInstaller::CLI::Workflow
                     return ExpectedReturnCode(returnCode, APPINSTALLER_CLI_ERROR_INSTALL_DOWNGRADE, Resource::String::InstallFlowReturnCodeDowngrade);
                 case ExpectedReturnCodeEnum::BlockedByPolicy:
                     return ExpectedReturnCode(returnCode, APPINSTALLER_CLI_ERROR_INSTALL_BLOCKED_BY_POLICY, Resource::String::InstallFlowReturnCodeBlockedByPolicy);
+                case ExpectedReturnCodeEnum::SystemNotSupported:
+                    return ExpectedReturnCode(returnCode, APPINSTALLER_CLI_ERROR_INSTALL_SYSTEM_NOT_SUPPORTED, Resource::String::InstallFlowReturnCodeSystemNotSupported);
                 default:
                     THROW_HR(E_UNEXPECTED);
                 }
@@ -167,8 +161,6 @@ namespace AppInstaller::CLI::Workflow
             AICLI_TERMINATE_CONTEXT(APPINSTALLER_CLI_ERROR_NO_APPLICABLE_INSTALLER);
         }
 
-        context << EnsureSupportForInstall;
-        
         // This installer cannot be run elevated, but we are running elevated.
         // Implementation of de-elevation is complex; simply block for now.
         if (installer->ElevationRequirement == ElevationRequirementEnum::ElevationProhibited && Runtime::IsRunningAsAdmin())
@@ -176,6 +168,8 @@ namespace AppInstaller::CLI::Workflow
             context.Reporter.Error() << Resource::String::InstallerProhibitsElevation << std::endl;
             AICLI_TERMINATE_CONTEXT(APPINSTALLER_CLI_ERROR_INSTALLER_PROHIBITS_ELEVATION);
         }
+
+        context << EnsureSupportForInstall;
     }
 
     void CheckForUnsupportedArgs(Execution::Context& context)
@@ -244,7 +238,7 @@ namespace AppInstaller::CLI::Workflow
 
             if (!installationNotes.empty())
             {
-                context.Reporter.Info() << Resource::String::Notes << ' ' << installationNotes << std::endl;
+                context.Reporter.Info() << Resource::String::Notes(installationNotes) << std::endl;
             }
         }
     }
@@ -253,6 +247,7 @@ namespace AppInstaller::CLI::Workflow
     {
         bool isUpdate = WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::InstallerExecutionUseUpdate);
         UpdateBehaviorEnum updateBehavior = context.Get<Execution::Data::Installer>().value().UpdateBehavior;
+        bool doUninstallPrevious = isUpdate && (updateBehavior == UpdateBehaviorEnum::UninstallPrevious || context.Args.Contains(Execution::Args::Type::UninstallPrevious));
 
         switch (m_installerType)
         {
@@ -262,7 +257,7 @@ namespace AppInstaller::CLI::Workflow
         case InstallerTypeEnum::Msi:
         case InstallerTypeEnum::Nullsoft:
         case InstallerTypeEnum::Wix:
-            if (isUpdate && updateBehavior == UpdateBehaviorEnum::UninstallPrevious)
+            if (doUninstallPrevious)
             {
                 context <<
                     GetUninstallInfo <<
@@ -287,7 +282,7 @@ namespace AppInstaller::CLI::Workflow
                 (isUpdate ? MSStoreUpdate : MSStoreInstall);
             break;
         case InstallerTypeEnum::Portable:
-            if (isUpdate && updateBehavior == UpdateBehaviorEnum::UninstallPrevious)
+            if (doUninstallPrevious)
             {
                 context <<
                     GetUninstallInfo <<
@@ -301,6 +296,21 @@ namespace AppInstaller::CLI::Workflow
             break;
         default:
             THROW_HR(HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED));
+        }
+    }
+
+    void EnsureRunningAsAdminForMachineScopeInstall(Execution::Context& context)
+    {
+        // Admin is required for machine scope install for installer types like portable, msix and msstore.
+        auto installerType = context.Get<Execution::Data::Installer>().value().EffectiveInstallerType();
+
+        if (Manifest::DoesInstallerTypeRequireAdminForMachineScopeInstall(installerType))
+        {
+            Manifest::ScopeEnum scope = ConvertToScopeEnum(context.Args.GetArg(Execution::Args::Type::InstallScope));
+            if (scope == Manifest::ScopeEnum::Machine)
+            {
+                context << Workflow::EnsureRunningAsAdmin;
+            }
         }
     }
 
@@ -355,6 +365,18 @@ namespace AppInstaller::CLI::Workflow
             uri = context.Get<Execution::Data::Installer>()->Url;
         }
 
+        bool isMachineScope = Manifest::ConvertToScopeEnum(context.Args.GetArg(Execution::Args::Type::InstallScope)) == Manifest::ScopeEnum::Machine;
+
+        // TODO: There was a bug in deployment api if provision api was called in packaged context.
+        // Remove this check when the OS bug is fixed and back ported.
+        if (isMachineScope && Runtime::IsRunningInPackagedContext())
+        {
+            context.Reporter.Error() << Resource::String::InstallFlowReturnCodeSystemNotSupported << std::endl;
+            context.Add<Execution::Data::OperationReturnCode>(static_cast<DWORD>(APPINSTALLER_CLI_ERROR_INSTALL_SYSTEM_NOT_SUPPORTED));
+            AICLI_LOG(CLI, Error, << "Device wide install for msix type is not supported in packaged context.");
+            AICLI_TERMINATE_CONTEXT(APPINSTALLER_CLI_ERROR_INSTALL_SYSTEM_NOT_SUPPORTED);
+        }
+
         context.Reporter.Info() << Resource::String::InstallFlowStartingPackageInstall << std::endl;
 
         bool registrationDeferred = false;
@@ -362,8 +384,15 @@ namespace AppInstaller::CLI::Workflow
         try
         {
             registrationDeferred = context.Reporter.ExecuteWithProgress([&](IProgressCallback& callback)
-            {
-                return Deployment::AddPackageWithDeferredFallback(uri, WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::InstallerTrusted), callback);
+                {
+                    if (isMachineScope)
+                    {
+                        return Deployment::AddPackageMachineScope(uri, callback);
+                    }
+                    else
+                    {
+                        return Deployment::AddPackageWithDeferredFallback(uri, WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::InstallerTrusted), callback);
+                    }
             });
         }
         catch (const wil::ResultException& re)
@@ -394,17 +423,22 @@ namespace AppInstaller::CLI::Workflow
 
             if (m_isHResult)
             {
-                context.Reporter.Error() << Resource::String::InstallerFailedWithCode << ' ' << GetUserPresentableMessage(installResult) << std::endl;
+                context.Reporter.Error()
+                    << Resource::String::InstallerFailedWithCode(Utility::LocIndView{ GetUserPresentableMessage(installResult) })
+                    << std::endl;
             }
             else
             {
-                context.Reporter.Error() << Resource::String::InstallerFailedWithCode << ' ' << installResult << std::endl;
+                context.Reporter.Error()
+                    << Resource::String::InstallerFailedWithCode(installResult)
+                    << std::endl;
             }
 
             // Show installer log path if exists
             if (context.Contains(Execution::Data::LogPath) && std::filesystem::exists(context.Get<Execution::Data::LogPath>()))
             {
-                context.Reporter.Info() << Resource::String::InstallerLogAvailable << ' ' << context.Get<Execution::Data::LogPath>().u8string() << std::endl;
+                auto installerLogPath = Utility::LocIndString{ context.Get<Execution::Data::LogPath>().u8string() };
+                context.Reporter.Info() << Resource::String::InstallerLogAvailable(installerLogPath) << std::endl;
             }
 
             // Show a specific message if we can identify the return code
@@ -475,7 +509,7 @@ namespace AppInstaller::CLI::Workflow
     void EnsureSupportForInstall(Execution::Context& context)
     {
         context <<
-            Workflow::EnsureFeatureEnabledForArchiveInstall <<
+            Workflow::EnsureRunningAsAdminForMachineScopeInstall <<
             Workflow::EnsureSupportForPortableInstall <<
             Workflow::EnsureValidNestedInstallerMetadataForArchiveInstall;
     }
@@ -494,7 +528,7 @@ namespace AppInstaller::CLI::Workflow
         if (Settings::ExperimentalFeature::IsEnabled(Settings::ExperimentalFeature::Feature::Dependencies))
         {
             DependencyList allDependencies;
-            for (auto& packageContext : context.Get<Execution::Data::PackagesToInstall>())
+            for (auto& packageContext : context.Get<Execution::Data::PackageSubContexts>())
             {
                 allDependencies.Add(packageContext->Get<Execution::Data::Installer>().value().Dependencies);
             }
@@ -504,10 +538,10 @@ namespace AppInstaller::CLI::Workflow
         }
 
         bool allSucceeded = true;
-        size_t packagesCount = context.Get<Execution::Data::PackagesToInstall>().size();
+        size_t packagesCount = context.Get<Execution::Data::PackageSubContexts>().size();
         size_t packagesProgress = 0;
-        
-        for (auto& packageContext : context.Get<Execution::Data::PackagesToInstall>())
+
+        for (auto& packageContext : context.Get<Execution::Data::PackageSubContexts>())
         {
             packagesProgress++;
             context.Reporter.Info() << '(' << packagesProgress << '/' << packagesCount << ") "_liv;
@@ -548,6 +582,10 @@ namespace AppInstaller::CLI::Workflow
                 if (m_ignorableInstallResults.end() == std::find(m_ignorableInstallResults.begin(), m_ignorableInstallResults.end(), installContext.GetTerminationHR()))
                 {
                     allSucceeded = false;
+                    if (m_stopOnFailure)
+                    {
+                        break;
+                    }
                 }
             }
         }

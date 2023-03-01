@@ -311,7 +311,7 @@ namespace AppInstaller::Manifest
         {
             result = ExpectedReturnCodeEnum::PackageInUse;
         }
-        if (inStrLower == "packageinusebyapplication")
+        else if (inStrLower == "packageinusebyapplication")
         {
             result = ExpectedReturnCodeEnum::PackageInUseByApplication;
         }
@@ -334,6 +334,10 @@ namespace AppInstaller::Manifest
         else if (inStrLower == "insufficientmemory")
         {
             result = ExpectedReturnCodeEnum::InsufficientMemory;
+        }
+        else if (inStrLower == "invalidparameter")
+        {
+            result = ExpectedReturnCodeEnum::InvalidParameter;
         }
         else if (inStrLower == "nonetwork")
         {
@@ -370,6 +374,10 @@ namespace AppInstaller::Manifest
         else if (inStrLower == "blockedbypolicy")
         {
             result = ExpectedReturnCodeEnum::BlockedByPolicy;
+        }
+        else if (inStrLower == "systemnotsupported")
+        {
+            result = ExpectedReturnCodeEnum::SystemNotSupported;
         }
         else if (inStrLower == "custom")
         {
@@ -487,9 +495,18 @@ namespace AppInstaller::Manifest
 
     bool DoesInstallerTypeIgnoreScopeFromManifest(InstallerTypeEnum installerType)
     {
-        return (
-            installerType == InstallerTypeEnum::Portable
-            );
+        return
+            installerType == InstallerTypeEnum::Portable ||
+            installerType == InstallerTypeEnum::Msix ||
+            installerType == InstallerTypeEnum::MSStore;
+    }
+
+    bool DoesInstallerTypeRequireAdminForMachineScopeInstall(InstallerTypeEnum installerType)
+    {
+        return
+            installerType == InstallerTypeEnum::Portable ||
+            installerType == InstallerTypeEnum::MSStore ||
+            installerType == InstallerTypeEnum::Msix;
     }
 
     bool IsArchiveType(InstallerTypeEnum installerType)
@@ -593,7 +610,18 @@ namespace AppInstaller::Manifest
                 { ERROR_SUCCESS_REBOOT_INITIATED, ExpectedReturnCodeEnum::RebootInitiated },
                 { ERROR_INSTALL_USEREXIT, ExpectedReturnCodeEnum::CancelledByUser },
                 { ERROR_PRODUCT_VERSION, ExpectedReturnCodeEnum::AlreadyInstalled },
-                { ERROR_INSTALL_REJECTED, ExpectedReturnCodeEnum::BlockedByPolicy },
+                { ERROR_INSTALL_REJECTED, ExpectedReturnCodeEnum::SystemNotSupported },
+                { ERROR_INSTALL_PACKAGE_REJECTED, ExpectedReturnCodeEnum::BlockedByPolicy },
+                { ERROR_INSTALL_TRANSFORM_REJECTED, ExpectedReturnCodeEnum::BlockedByPolicy },
+                { ERROR_PATCH_PACKAGE_REJECTED, ExpectedReturnCodeEnum::BlockedByPolicy },
+                { ERROR_PATCH_REMOVAL_DISALLOWED, ExpectedReturnCodeEnum::BlockedByPolicy },
+                { ERROR_INSTALL_REMOTE_DISALLOWED, ExpectedReturnCodeEnum::BlockedByPolicy },
+                { ERROR_INVALID_PARAMETER, ExpectedReturnCodeEnum::InvalidParameter },
+                { ERROR_INVALID_TABLE, ExpectedReturnCodeEnum::InvalidParameter },
+                { ERROR_INVALID_COMMAND_LINE, ExpectedReturnCodeEnum::InvalidParameter },
+                { ERROR_INVALID_PATCH_XML, ExpectedReturnCodeEnum::InvalidParameter },
+                { ERROR_INSTALL_LANGUAGE_UNSUPPORTED, ExpectedReturnCodeEnum::SystemNotSupported },
+                { ERROR_INSTALL_PLATFORM_UNSUPPORTED, ExpectedReturnCodeEnum::SystemNotSupported },
             };
         case InstallerTypeEnum::Inno:
             // See https://jrsoftware.org/ishelp/index.php?topic=setupexitcodes
@@ -614,6 +642,13 @@ namespace AppInstaller::Manifest
                 { HRESULT_FROM_WIN32(ERROR_INSTALL_CANCEL), ExpectedReturnCodeEnum::CancelledByUser },
                 { HRESULT_FROM_WIN32(ERROR_PACKAGE_ALREADY_EXISTS), ExpectedReturnCodeEnum::AlreadyInstalled },
                 { HRESULT_FROM_WIN32(ERROR_INSTALL_PACKAGE_DOWNGRADE), ExpectedReturnCodeEnum::Downgrade },
+                { HRESULT_FROM_WIN32(ERROR_DEPLOYMENT_BLOCKED_BY_POLICY), ExpectedReturnCodeEnum::BlockedByPolicy},
+                { HRESULT_FROM_WIN32(ERROR_INSTALL_POLICY_FAILURE), ExpectedReturnCodeEnum::BlockedByPolicy},
+                { HRESULT_FROM_WIN32(ERROR_PACKAGES_IN_USE), ExpectedReturnCodeEnum::PackageInUse },
+                { HRESULT_FROM_WIN32(ERROR_INSTALL_WRONG_PROCESSOR_ARCHITECTURE), ExpectedReturnCodeEnum::SystemNotSupported },
+                { HRESULT_FROM_WIN32(ERROR_PACKAGE_NOT_SUPPORTED_ON_FILESYSTEM), ExpectedReturnCodeEnum::SystemNotSupported },
+                { HRESULT_FROM_WIN32(ERROR_DEPLOYMENT_OPTION_NOT_SUPPORTED), ExpectedReturnCodeEnum::SystemNotSupported },
+                { HRESULT_FROM_WIN32(ERROR_PACKAGE_LACKS_CAPABILITY_TO_DEPLOY_ON_HOST), ExpectedReturnCodeEnum::SystemNotSupported },
             };
         default:
             return {};
@@ -668,8 +703,9 @@ namespace AppInstaller::Manifest
 
     Dependency* DependencyList::HasDependency(const Dependency& dependencyToSearch)
     {
-        for (auto& dependency : m_dependencies) {
-            if (dependency.Type == dependencyToSearch.Type && ICUCaseInsensitiveEquals(dependency.Id, dependencyToSearch.Id))
+        for (auto& dependency : m_dependencies)
+        {
+            if (dependency.Type == dependencyToSearch.Type && ICUCaseInsensitiveEquals(dependency.Id(), dependencyToSearch.Id()))
             {
                 return &dependency;
             }
@@ -682,7 +718,7 @@ namespace AppInstaller::Manifest
     {
         for (const auto& dependency : m_dependencies)
         {
-            if (dependency.Type == type && Utility::ICUCaseInsensitiveEquals(dependency.Id, id))
+            if (dependency.Type == type && Utility::ICUCaseInsensitiveEquals(dependency.Id(), id))
             {
                 if (dependency.MinVersion) {
                     if (dependency.MinVersion.value() == minVersion)

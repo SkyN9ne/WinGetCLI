@@ -84,6 +84,14 @@ namespace winrt::Microsoft::Management::Deployment::implementation
     {
         m_replacementInstallerArguments = value;
     }
+    hstring InstallOptions::AdditionalInstallerArguments()
+    {
+        return hstring(m_additionalInstallerArguments);
+    }
+    void InstallOptions::AdditionalInstallerArguments(hstring const& value)
+    {
+        m_additionalInstallerArguments = value;
+    }
     hstring InstallOptions::CorrelationData()
     {
         return hstring(m_correlationData);
@@ -111,6 +119,14 @@ namespace winrt::Microsoft::Management::Deployment::implementation
     void InstallOptions::AllowUpgradeToUnknownVersion(bool value)
     {
         m_allowUpgradeToUnknownVersion = value;
+    }
+    bool InstallOptions::Force()
+    {
+        return m_force;
+    }
+    void InstallOptions::Force(bool value)
+    {
+        m_force = value;
     }
 
     CoCreatableMicrosoftManagementDeploymentClass(InstallOptions);

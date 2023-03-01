@@ -6,16 +6,15 @@
 
 namespace Microsoft.WinGet.Client.Commands
 {
-    using System;
     using System.Management.Automation;
-    using Microsoft.Management.Deployment;
+    using Microsoft.WinGet.Client.Commands.Common;
     using Microsoft.WinGet.Client.Common;
 
     /// <summary>
     /// Retrieves the list of configured sources.
     /// </summary>
-    [Cmdlet(VerbsCommon.Get, Constants.SourceNoun)]
-    [OutputType(typeof(PackageCatalogReference))]
+    [Cmdlet(VerbsCommon.Get, Constants.WinGetNouns.Source)]
+    [OutputType(typeof(PSObjects.SourceResult))]
     public sealed class GetSourceCommand : BaseClientCommand
     {
         /// <summary>
@@ -36,7 +35,7 @@ namespace Microsoft.WinGet.Client.Commands
             var results = GetPackageCatalogReferences(this.Name);
             for (var i = 0; i < results.Count; i++)
             {
-                this.WriteObject(results[i]);
+                this.WriteObject(new PSObjects.SourceResult(results[i]));
             }
         }
     }

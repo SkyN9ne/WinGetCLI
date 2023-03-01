@@ -307,4 +307,36 @@ namespace winrt::Microsoft::Management::Deployment::implementation
 
         return Microsoft::Management::Deployment::PackageInstallerScope::Unknown;
     }
+
+    ::AppInstaller::Manifest::ScopeEnum GetManifestUninstallScope(winrt::Microsoft::Management::Deployment::PackageUninstallScope scope)
+    {
+        switch (scope)
+        {
+        case winrt::Microsoft::Management::Deployment::PackageInstallScope::Any:
+            return ::AppInstaller::Manifest::ScopeEnum::Unknown;
+        case winrt::Microsoft::Management::Deployment::PackageInstallScope::User:
+            return ::AppInstaller::Manifest::ScopeEnum::User;
+        case winrt::Microsoft::Management::Deployment::PackageInstallScope::System:
+            return ::AppInstaller::Manifest::ScopeEnum::Machine;
+        }
+
+        return ::AppInstaller::Manifest::ScopeEnum::Unknown;
+    }
+
+    winrt::Microsoft::Management::Deployment::ElevationRequirement GetDeploymentElevationRequirement(::AppInstaller::Manifest::ElevationRequirementEnum elevationRequirement)
+    {
+        switch (elevationRequirement)
+        {
+        case ::AppInstaller::Manifest::ElevationRequirementEnum::ElevationRequired:
+            return Microsoft::Management::Deployment::ElevationRequirement::ElevationRequired;
+        case ::AppInstaller::Manifest::ElevationRequirementEnum::ElevationProhibited:
+            return Microsoft::Management::Deployment::ElevationRequirement::ElevationProhibited;
+        case ::AppInstaller::Manifest::ElevationRequirementEnum::ElevatesSelf:
+            return Microsoft::Management::Deployment::ElevationRequirement::ElevatesSelf;
+        case ::AppInstaller::Manifest::ElevationRequirementEnum::Unknown:
+            return Microsoft::Management::Deployment::ElevationRequirement::Unknown;
+        }
+
+        return Microsoft::Management::Deployment::ElevationRequirement::Unknown;
+    }
 }

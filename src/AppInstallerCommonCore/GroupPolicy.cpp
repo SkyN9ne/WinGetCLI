@@ -273,6 +273,8 @@ namespace AppInstaller::Settings
             return TogglePolicy(policy, "EnableLocalManifestFiles"sv, String::PolicyEnableLocalManifests);
         case TogglePolicy::Policy::HashOverride:
             return TogglePolicy(policy, "EnableHashOverride"sv, String::PolicyEnableHashOverride);
+        case TogglePolicy::Policy::LocalArchiveMalwareScanOverride:
+            return TogglePolicy(policy, "EnableLocalArchiveMalwareScanOverride"sv, String::PolicyEnableLocalArchiveMalwareScanOverride);
         case TogglePolicy::Policy::DefaultSource:
             return TogglePolicy(policy, "EnableDefaultSource"sv, String::PolicyEnableDefaultSource);
         case TogglePolicy::Policy::MSStoreSource:
@@ -281,6 +283,8 @@ namespace AppInstaller::Settings
             return TogglePolicy(policy, "EnableAdditionalSources"sv, String::PolicyAdditionalSources);
         case TogglePolicy::Policy::AllowedSources:
             return TogglePolicy(policy, "EnableAllowedSources"sv, String::PolicyAllowedSources);
+        case TogglePolicy::Policy::BypassCertificatePinningForMicrosoftStore:
+            return TogglePolicy(policy, "EnableBypassCertificatePinningForMicrosoftStore"sv, String::PolicyEnableBypassCertificatePinningForMicrosoftStore);
         default:
             THROW_HR(E_UNEXPECTED);
         }
