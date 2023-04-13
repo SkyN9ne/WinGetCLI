@@ -8,6 +8,7 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
 {
     using System;
     using System.Collections.Generic;
+    using System.IO;
     using System.Linq;
     using System.Management.Automation;
     using System.Management.Automation.Runspaces;
@@ -15,8 +16,6 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
     using Microsoft.Management.Configuration.Processor.Constants;
     using Microsoft.Management.Configuration.Processor.DscModule;
     using Microsoft.Management.Configuration.Processor.DscResourcesInfo;
-    using Microsoft.Management.Configuration.Processor.Exceptions;
-    using Microsoft.Management.Configuration.Processor.Extensions;
     using Microsoft.Management.Configuration.Processor.Helpers;
     using Microsoft.Management.Configuration.Processor.ProcessorEnvironments;
     using Microsoft.PowerShell.Commands;
@@ -51,7 +50,12 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
         /// <summary>
         /// Gets the DscModule.
         /// </summary>
-        protected IDscModule DscModule { get; }
+        internal IDscModule DscModule { get; }
+
+        /// <summary>
+        /// Gets or initializes the set processor factory.
+        /// </summary>
+        internal ConfigurationSetProcessorFactory? SetProcessorFactory { get; init; }
 
         /// <inheritdoc/>
         public void ValidateRunspace()
@@ -59,7 +63,7 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
             // Only support PowerShell Core.
             if (this.GetVariable<string>(Variables.PSEdition) != Core)
             {
-                throw new NotSupportedException();
+                throw new NotSupportedException("Only PowerShell Core is supported.");
             }
 
             var powerShellGet = PowerShellHelpers.CreateModuleSpecification(
@@ -84,28 +88,58 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
         }
 
         /// <inheritdoc/>
-        public IReadOnlyList<DscResourceInfoInternal> GetAllDscResources() =>
-            this.DscModule.GetAllDscResources(this.Runspace);
+        public IReadOnlyList<DscResourceInfoInternal> GetAllDscResources()
+        {
+            using PowerShell pwsh = PowerShell.Create(this.Runspace);
+            var results = this.DscModule.GetAllDscResources(pwsh);
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
+            return results;
+        }
 
         /// <inheritdoc/>
-        public IReadOnlyList<DscResourceInfoInternal> GetDscResourcesInModule(ModuleSpecification moduleSpecification) =>
-            this.DscModule.GetDscResourcesInModule(this.Runspace, moduleSpecification);
+        public IReadOnlyList<DscResourceInfoInternal> GetDscResourcesInModule(ModuleSpecification moduleSpecification)
+        {
+            using PowerShell pwsh = PowerShell.Create(this.Runspace);
+            var results = this.DscModule.GetDscResourcesInModule(pwsh, moduleSpecification);
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
+            return results;
+        }
 
         /// <inheritdoc/>
-        public DscResourceInfoInternal? GetDscResource(ConfigurationUnitInternal unitInternal) =>
-            this.DscModule.GetDscResource(this.Runspace, unitInternal.Unit.UnitName, unitInternal.Module);
+        public DscResourceInfoInternal? GetDscResource(ConfigurationUnitInternal unitInternal)
+        {
+            using PowerShell pwsh = PowerShell.Create(this.Runspace);
+            var result = this.DscModule.GetDscResource(pwsh, unitInternal.Unit.UnitName, unitInternal.Module);
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
+            return result;
+        }
 
         /// <inheritdoc/>
-        public ValueSet InvokeGetResource(ValueSet settings, string name, ModuleSpecification? moduleSpecification) =>
-            this.DscModule.InvokeGetResource(this.Runspace, settings, name, moduleSpecification);
+        public ValueSet InvokeGetResource(ValueSet settings, string name, ModuleSpecification? moduleSpecification)
+        {
+            using PowerShell pwsh = PowerShell.Create(this.Runspace);
+            var result = this.DscModule.InvokeGetResource(pwsh, settings, name, moduleSpecification);
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
+            return result;
+        }
 
         /// <inheritdoc/>
-        public bool InvokeTestResource(ValueSet settings, string name, ModuleSpecification? moduleSpecification) =>
-            this.DscModule.InvokeTestResource(this.Runspace, settings, name, moduleSpecification);
+        public bool InvokeTestResource(ValueSet settings, string name, ModuleSpecification? moduleSpecification)
+        {
+            using PowerShell pwsh = PowerShell.Create(this.Runspace);
+            var result = this.DscModule.InvokeTestResource(pwsh, settings, name, moduleSpecification);
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
+            return result;
+        }
 
         /// <inheritdoc/>
-        public bool InvokeSetResource(ValueSet settings, string name, ModuleSpecification? moduleSpecification) =>
-            this.DscModule.InvokeSetResource(this.Runspace, settings, name, moduleSpecification);
+        public bool InvokeSetResource(ValueSet settings, string name, ModuleSpecification? moduleSpecification)
+        {
+            using PowerShell pwsh = PowerShell.Create(this.Runspace);
+            var result = this.DscModule.InvokeSetResource(pwsh, settings, name, moduleSpecification);
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
+            return result;
+        }
 
         /// <inheritdoc/>
         public PSModuleInfo? GetImportedModule(ModuleSpecification moduleSpecification)
@@ -117,6 +151,7 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
                                  .Invoke<PSModuleInfo>()
                                  .FirstOrDefault();
 
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
             return moduleInfo;
         }
 
@@ -131,6 +166,7 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
                                  .Invoke<PSModuleInfo>()
                                  .FirstOrDefault();
 
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
             return moduleInfo;
         }
 
@@ -145,6 +181,7 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
                                  .Invoke<PSModuleInfo>()
                                  .FirstOrDefault();
 
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
             return moduleInfo;
         }
 
@@ -156,6 +193,25 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
             _ = pwsh.AddCommand(Commands.ImportModule)
                     .AddParameter(Parameters.FullyQualifiedName, moduleSpecification)
                     .Invoke();
+
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
+        }
+
+        /// <inheritdoc/>
+        public void ImportModule(string path)
+        {
+            if (!File.Exists(path))
+            {
+                throw new FileNotFoundException(path);
+            }
+
+            using PowerShell pwsh = PowerShell.Create(this.Runspace);
+
+            _ = pwsh.AddCommand(Commands.ImportModule)
+                    .AddParameter(Parameters.Name, path)
+                    .Invoke();
+
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
         }
 
         /// <inheritdoc/>
@@ -188,6 +244,7 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
                              .Invoke()
                              .FirstOrDefault();
 
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
             return result;
         }
 
@@ -236,6 +293,7 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
                              .Invoke()
                              .FirstOrDefault();
 
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
             return result;
         }
 
@@ -247,7 +305,9 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
             _ = pwsh.AddCommand(Commands.SaveModule)
                     .AddParameter(Parameters.Path, location)
                     .AddParameter(Parameters.InputObject, inputObject)
-                    .InvokeAndStopOnError();
+                    .Invoke();
+
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
         }
 
         /// <inheritdoc/>
@@ -265,7 +325,9 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
             _ = pwsh.AddCommand(Commands.InstallModule)
                     .AddParameter(Parameters.InputObject, inputObject)
                     .AddParameter(Parameters.Force)
-                    .InvokeAndStopOnError();
+                    .Invoke();
+
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
         }
 
         /// <inheritdoc/>
@@ -298,7 +360,9 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
                 _ = pwsh.AddCommand(Commands.InstallModule)
                         .AddParameters(parameters)
                         .AddParameter(Parameters.Force)
-                        .InvokeAndStopOnError();
+                        .Invoke();
+
+                this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
             }
         }
 
@@ -310,7 +374,7 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
             var signatures = pwsh.AddCommand(Commands.GetChildItem)
                                  .AddParameter(Parameters.Path, paths)
                                  .AddCommand(Commands.GetAuthenticodeSignature)
-                                 .InvokeAndStopOnError<Signature>();
+                                 .Invoke<Signature>();
 
             var thumbprint = new HashSet<string>();
             var certificates = new List<Certificate>();
@@ -326,6 +390,7 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
                 }
             }
 
+            this.OnDiagnostics(DiagnosticLevel.Verbose, pwsh);
             return certificates;
         }
 
@@ -407,6 +472,11 @@ namespace Microsoft.Management.Configuration.Processor.Runspaces
             }
 
             return false;
+        }
+
+        private void OnDiagnostics(DiagnosticLevel level, PowerShell pwsh)
+        {
+            this.SetProcessorFactory?.OnDiagnostics(level, pwsh);
         }
     }
 }

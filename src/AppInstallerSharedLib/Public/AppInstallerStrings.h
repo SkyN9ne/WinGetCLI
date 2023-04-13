@@ -16,6 +16,9 @@ namespace AppInstaller::Utility
     // Converts the given UTF8 string to UTF16
     std::wstring ConvertToUTF16(std::string_view input, UINT codePage = CP_UTF8);
 
+    // Tries to convert the given UTF8 string to UTF16
+    std::optional<std::wstring> TryConvertToUTF16(std::string_view input, UINT codePage = CP_UTF8);
+
     // Converts the given UTF8 string to UTF32
     std::u32string ConvertToUTF32(std::string_view input);
 
@@ -111,6 +114,10 @@ namespace AppInstaller::Utility
     // Determines if string a starts with string b.
     // Use this if one of the values is a known value, and thus ToLower is sufficient.
     bool CaseInsensitiveStartsWith(std::string_view a, std::string_view b);
+
+    // Determines if string a contains string b.
+    // Use this if one of the values is a known value, and thus ToLower is sufficient.
+    bool CaseInsensitiveContainsSubstring(std::string_view a, std::string_view b);
 
     // Compares the two UTF8 strings in a case insensitive manner, using ICU for case folding.
     bool ICUCaseInsensitiveEquals(std::string_view a, std::string_view b);

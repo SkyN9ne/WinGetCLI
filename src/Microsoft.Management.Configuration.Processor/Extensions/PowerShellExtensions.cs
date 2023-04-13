@@ -9,7 +9,6 @@ namespace Microsoft.Management.Configuration.Processor.Extensions
     using System.Collections.ObjectModel;
     using System.Management.Automation;
     using System.Text;
-    using Microsoft.PowerShell.Commands;
 
     /// <summary>
     /// Extensions methods for <see cref="PowerShell"/> class.
@@ -28,11 +27,7 @@ namespace Microsoft.Management.Configuration.Processor.Extensions
                 ErrorActionPreference = ActionPreference.Stop,
             };
 
-            var result = pwsh.Invoke(null, settings);
-
-            pwsh.ValidateErrorStream();
-
-            return result;
+            return pwsh.Invoke(null, settings);
         }
 
         /// <summary>
@@ -48,18 +43,15 @@ namespace Microsoft.Management.Configuration.Processor.Extensions
                 ErrorActionPreference = ActionPreference.Stop,
             };
 
-            var result = pwsh.Invoke<T>(null, settings);
-
-            pwsh.ValidateErrorStream();
-
-            return result;
+            return pwsh.Invoke<T>(null, settings);
         }
 
         /// <summary>
-        /// Throws <see cref="WriteErrorException"/> if there are streams in the stream error.
+        /// Gets the error stream message if any.
         /// </summary>
         /// <param name="pwsh">PowerShell.</param>
-        public static void ValidateErrorStream(this PowerShell pwsh)
+        /// <returns>Error message. Null if none.</returns>
+        public static string? GetErrorMessage(this PowerShell pwsh)
         {
             if (pwsh.HadErrors)
             {
@@ -69,8 +61,10 @@ namespace Microsoft.Management.Configuration.Processor.Extensions
                     psStreamBuilder.AppendLine(line.ToString());
                 }
 
-                throw new WriteErrorException(psStreamBuilder.ToString());
+                return psStreamBuilder.ToString();
             }
+
+            return null;
         }
     }
 }

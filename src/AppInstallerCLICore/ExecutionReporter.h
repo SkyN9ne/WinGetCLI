@@ -113,6 +113,7 @@ namespace AppInstaller::CLI::Execution
         // IProgressSink
         void BeginProgress() override;
         void OnProgress(uint64_t current, uint64_t maximum, ProgressType type) override;
+        void SetProgressMessage(std::string_view message) override;
         void EndProgress(bool hideProgressWhenDone) override;
 
         // Runs the given callable of type: auto(IProgressCallback&)
@@ -172,4 +173,6 @@ namespace AppInstaller::CLI::Execution
     extern const VirtualTerminal::Sequence& UrlEmphasis;
     extern const VirtualTerminal::Sequence& PromptEmphasis;
     extern const VirtualTerminal::Sequence& ConvertToUpgradeFlowEmphasis;
+    extern const VirtualTerminal::Sequence& ConfigurationIntentEmphasis;
+    extern const VirtualTerminal::Sequence& ConfigurationUnitEmphasis;
 }

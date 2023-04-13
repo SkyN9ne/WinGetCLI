@@ -18,6 +18,8 @@ namespace AppInstaller::CLI::Execution
     const Sequence& UrlEmphasis = TextFormat::Foreground::BrightBlue;
     const Sequence& PromptEmphasis = TextFormat::Foreground::Bright;
     const Sequence& ConvertToUpgradeFlowEmphasis = TextFormat::Foreground::BrightYellow;
+    const Sequence& ConfigurationIntentEmphasis = TextFormat::Foreground::Bright;
+    const Sequence& ConfigurationUnitEmphasis = TextFormat::Foreground::BrightCyan;
 
     Reporter::Reporter(std::ostream& outStream, std::istream& inStream) :
         Reporter(std::make_shared<BaseStream>(outStream, true, ConsoleModeRestore::Instance().IsVTEnabled()), inStream)
@@ -214,6 +216,19 @@ namespace AppInstaller::CLI::Execution
         }
     }
 
+    void Reporter::SetProgressMessage(std::string_view message)
+    {
+        if (m_spinner)
+        {
+            m_spinner->SetMessage(message);
+        }
+
+        if (m_progressBar)
+        {
+            m_progressBar->SetMessage(message);
+        }
+    }
+
     void Reporter::BeginProgress()
     {
         GetBasicOutputStream() << VirtualTerminal::Cursor::Visibility::DisableShow;
@@ -227,6 +242,7 @@ namespace AppInstaller::CLI::Execution
         {
             m_progressBar->EndProgress(hideProgressWhenDone);
         }
+        SetProgressMessage({});
         GetBasicOutputStream() << VirtualTerminal::Cursor::Visibility::EnableShow;
     };
 

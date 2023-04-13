@@ -10,9 +10,9 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
     using System.Collections.Generic;
 
     /// <summary>
-    /// A test implementation of IConfigurationProcessorFactory.
+    /// A test implementation of IConfigurationSetProcessorFactory.
     /// </summary>
-    internal class TestConfigurationProcessorFactory : IConfigurationProcessorFactory
+    internal class TestConfigurationProcessorFactory : IConfigurationSetProcessorFactory
     {
         /// <summary>
         /// Delegate type for CreateSetProcessor.
@@ -21,6 +21,18 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
         /// <param name="configurationSet">The set.</param>
         /// <returns>A new TestConfigurationSetProcessor for the set.</returns>
         internal delegate IConfigurationSetProcessor CreateSetProcessorDelegateType(TestConfigurationProcessorFactory factory, ConfigurationSet configurationSet);
+
+        /// <summary>
+        /// Diagnostics event; useful for logging and/or verbose output.
+        /// </summary>
+#pragma warning disable CS0067 // The event is never used
+        public event EventHandler<DiagnosticInformation>? Diagnostics;
+#pragma warning restore CS0067 // The event is never used
+
+        /// <summary>
+        /// Gets or sets the minimum diagnostic level to send.
+        /// </summary>
+        public DiagnosticLevel MinimumLevel { get; set; } = DiagnosticLevel.Informational;
 
         /// <summary>
         /// Gets or sets the processor used when the incoming configuration set is null.

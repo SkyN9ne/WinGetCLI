@@ -139,6 +139,7 @@ dotnet
 downlevel
 downloader
 downloaders
+dsc
 dsx
 dword
 DWORDLONG
@@ -277,6 +278,7 @@ LEN
 Linux
 LLVM
 llvmorg
+lnk
 LOCALAPPDATA
 localtime
 LOGONLYONERROR
@@ -446,6 +448,7 @@ REFCLSID
 REFCOUNT
 regex
 regexp
+remoting
 removefile
 removemanifest
 removepin

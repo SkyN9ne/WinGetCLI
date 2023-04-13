@@ -50,6 +50,38 @@ namespace AppInstaller::Runtime
             return (result != APPMODEL_ERROR_NO_PACKAGE);
         }
 
+        // Gets the path to the root of the package containing the current process.
+        std::filesystem::path GetPackagePath()
+        {
+            wchar_t packageFullName[PACKAGE_FULL_NAME_MAX_LENGTH + 1];
+            UINT32 nameLength = ARRAYSIZE(packageFullName);
+            THROW_IF_WIN32_ERROR(GetPackageFullName(GetCurrentProcess(), &nameLength, packageFullName));
+
+            UINT32 pathLength = 0;
+            LONG result = GetPackagePathByFullName(packageFullName, &pathLength, nullptr);
+            THROW_HR_IF(HRESULT_FROM_WIN32(result), result != ERROR_INSUFFICIENT_BUFFER);
+
+            std::unique_ptr<wchar_t[]> buffer = std::make_unique<wchar_t[]>(pathLength);
+            THROW_IF_WIN32_ERROR(GetPackagePathByFullName(packageFullName, &pathLength, buffer.get()));
+
+            return { buffer.get() };
+        }
+
+        // Gets the path to the directory containing the currently executing binary file.
+        std::filesystem::path GetBinaryDirectoryPath()
+        {
+            HMODULE moduleHandle = NULL;
+            THROW_IF_WIN32_BOOL_FALSE(GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+                (LPCWSTR)&GetBinaryDirectoryPath, &moduleHandle));
+
+            // Get the path for this module.
+            wil::unique_process_heap_string binaryPath;
+            THROW_IF_FAILED(wil::GetModuleFileNameW(moduleHandle, binaryPath));
+
+            std::filesystem::path resultFilePath{ binaryPath.get() };
+            return resultFilePath.parent_path();
+        }
+
         std::unique_ptr<byte[]> GetPACKAGE_ID()
         {
             UINT32 bufferLength = 0;
@@ -416,11 +448,11 @@ namespace AppInstaller::Runtime
                 result.Path /= s_PortablePackagesDirectory;
             }
             break;
-        case PathName::PortablePackageMachineRootX64:
+        case PathName::PortablePackageMachineRoot:
             result.Path = Settings::User().Get<Setting::PortablePackageMachineRoot>();
             if (result.Path.empty())
             {
-                result.Path = GetKnownFolderPath(FOLDERID_ProgramFilesX64);
+                result.Path = GetKnownFolderPath(FOLDERID_ProgramFiles);
                 result.Path /= s_PortablePackageRoot;
                 result.Path /= s_PortablePackagesDirectory;
             }
@@ -453,7 +485,7 @@ namespace AppInstaller::Runtime
     }
 
 #ifndef WINGET_DISABLE_FOR_FUZZING
-    PathDetails GetPathDetailsForPackagedContext(PathName path)
+    PathDetails GetPathDetailsForPackagedContext(PathName path, bool forDisplay = false)
     {
         PathDetails result;
 
@@ -472,12 +504,10 @@ namespace AppInstaller::Runtime
             result.Path.assign(appStorage.LocalFolder().Path().c_str());
             break;
         case PathName::DefaultLogLocation:
-        case PathName::DefaultLogLocationForDisplay:
             // To enable UIF collection through Feedback hub, we must put our logs here.
             result.Path.assign(appStorage.LocalFolder().Path().c_str());
             result.Path /= WINGET_DEFAULT_LOG_DIRECTORY;
-
-            if (path == PathName::DefaultLogLocationForDisplay)
+            if (forDisplay)
             {
                 ReplaceCommonPathPrefix(result.Path, GetKnownFolderPath(FOLDERID_LocalAppData), "%LOCALAPPDATA%");
             }
@@ -504,12 +534,22 @@ namespace AppInstaller::Runtime
             }
             break;
         case PathName::UserProfile:
-        case PathName::PortablePackageUserRoot:
-        case PathName::PortablePackageMachineRootX64:
+        case PathName::PortablePackageMachineRoot:
         case PathName::PortablePackageMachineRootX86:
-        case PathName::PortableLinksUserLocation:
         case PathName::PortableLinksMachineLocation:
             result = GetPathDetailsCommon(path);
+            break;
+        case PathName::PortableLinksUserLocation:
+        case PathName::PortablePackageUserRoot:
+            result = GetPathDetailsCommon(path);
+            if (forDisplay)
+            {
+                ReplaceCommonPathPrefix(result.Path, GetKnownFolderPath(FOLDERID_LocalAppData), "%LOCALAPPDATA%");
+            }
+            break;
+        case PathName::SelfPackageRoot:
+            result.Path = GetPackagePath();
+            result.Create = false;
             break;
         default:
             THROW_HR(E_UNEXPECTED);
@@ -519,7 +559,7 @@ namespace AppInstaller::Runtime
     }
 #endif
 
-    PathDetails GetPathDetailsForUnpackagedContext(PathName path)
+    PathDetails GetPathDetailsForUnpackagedContext(PathName path, bool forDisplay = false)
     {
         PathDetails result;
 
@@ -528,7 +568,16 @@ namespace AppInstaller::Runtime
         case PathName::Temp:
         case PathName::DefaultLogLocation:
         {
-            result.Path = GetPathToUserTemp();
+            if (forDisplay)
+            {
+                result.Path.assign("%TEMP%");
+                result.Create = false;
+            }
+            else
+            {
+                result.Path = GetPathToUserTemp();
+            }
+
             result.Path /= s_DefaultTempDirectory;
             result.Path /= GetRuntimePathStateName();
             if (path == PathName::Temp)
@@ -539,12 +588,6 @@ namespace AppInstaller::Runtime
             }
         }
         break;
-        case PathName::DefaultLogLocationForDisplay:
-            result.Path.assign("%TEMP%");
-            result.Path /= s_DefaultTempDirectory;
-            result.Path /= GetRuntimePathStateName();
-            result.Create = false;
-            break;
         case PathName::LocalState:
             result.Path = GetPathToAppDataDir(s_AppDataDir_State);
             result.Path /= GetRuntimePathStateName();
@@ -575,12 +618,22 @@ namespace AppInstaller::Runtime
             }
             break;
         case PathName::UserProfile:
-        case PathName::PortablePackageUserRoot:
-        case PathName::PortablePackageMachineRootX64:
+        case PathName::PortablePackageMachineRoot:
         case PathName::PortablePackageMachineRootX86:
-        case PathName::PortableLinksUserLocation:
         case PathName::PortableLinksMachineLocation:
             result = GetPathDetailsCommon(path);
+            break;
+        case PathName::PortableLinksUserLocation:
+        case PathName::PortablePackageUserRoot:
+            result = GetPathDetailsCommon(path);
+            if (forDisplay)
+            {
+                ReplaceCommonPathPrefix(result.Path, GetKnownFolderPath(FOLDERID_LocalAppData), "%LOCALAPPDATA%");
+            }
+            break;
+        case PathName::SelfPackageRoot:
+            result.Path = GetBinaryDirectoryPath();
+            result.Create = false;
             break;
         default:
             THROW_HR(E_UNEXPECTED);
@@ -589,14 +642,14 @@ namespace AppInstaller::Runtime
         return result;
     }
 
-    PathDetails GetPathDetailsFor(PathName path)
+    PathDetails GetPathDetailsFor(PathName path, bool forDisplay)
     {
         PathDetails result;
 
 #ifndef WINGET_DISABLE_FOR_FUZZING
         if (IsRunningInPackagedContext())
         {
-            result = GetPathDetailsForPackagedContext(path);
+            result = GetPathDetailsForPackagedContext(path, forDisplay);
         }
         else
 #endif
@@ -616,9 +669,9 @@ namespace AppInstaller::Runtime
         return result;
     }
 
-    std::filesystem::path GetPathTo(PathName path)
+    std::filesystem::path GetPathTo(PathName path, bool forDisplay)
     {
-        PathDetails details = GetPathDetailsFor(path);
+        PathDetails details = GetPathDetailsFor(path, forDisplay);
 
         if (details.Create)
         {
@@ -735,7 +788,17 @@ namespace AppInstaller::Runtime
     {
         std::ostringstream strstr;
         strstr <<
-            "winget-cli"
+            "winget-cli" <<
+            " WindowsPackageManager/" << GetClientVersion() <<
+            " DesktopAppInstaller/" << GetPackageVersion();
+        return Utility::LocIndString{ strstr.str() };
+    }
+
+    Utility::LocIndString GetUserAgent(std::string_view caller)
+    {
+        std::ostringstream strstr;
+        strstr <<
+            caller <<
             " WindowsPackageManager/" << GetClientVersion() <<
             " DesktopAppInstaller/" << GetPackageVersion();
         return Utility::LocIndString{ strstr.str() };
