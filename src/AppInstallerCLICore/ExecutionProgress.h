@@ -3,6 +3,7 @@
 #pragma once
 #include "VTSupport.h"
 #include <AppInstallerProgress.h>
+#include <AppInstallerStrings.h>
 #include <winget/UserSettings.h>
 #include <ChannelStreams.h>
 
@@ -11,6 +12,7 @@
 #include <atomic>
 #include <future>
 #include <istream>
+#include <memory>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -27,12 +29,12 @@ namespace AppInstaller::CLI::Execution
 
             void SetStyle(AppInstaller::Settings::VisualStyle style) { m_style = style; }
 
-            void SetMessage(std::string_view message);
+            void Message(std::string_view message);
+            std::shared_ptr<Utility::NormalizedString> Message();
 
         protected:
             BaseStream& m_out;
             Settings::VisualStyle m_style = AppInstaller::Settings::VisualStyle::Accent;
-            std::string m_message;
 
             bool UseVT() const { return m_enableVT && m_style != AppInstaller::Settings::VisualStyle::NoVT; }
 
@@ -43,6 +45,7 @@ namespace AppInstaller::CLI::Execution
 
         private:
             bool m_enableVT = false;
+            std::shared_ptr<Utility::NormalizedString> m_message;
         };
     }
 

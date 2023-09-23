@@ -2,7 +2,8 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "ShellExecuteInstallerHandler.h"
-#include "AppInstallerFileLogger.h"
+#include <AppInstallerFileLogger.h>
+#include <AppInstallerRuntime.h>
 
 using namespace AppInstaller::CLI;
 using namespace AppInstaller::Utility;
@@ -40,7 +41,7 @@ namespace AppInstaller::CLI::Workflow
             wil::unique_process_handle process{ execInfo.hProcess };
 
             // Wait for installation to finish
-            while (!progress.IsCancelled())
+            while (!progress.IsCancelledBy(CancelReason::User))
             {
                 DWORD waitResult = WaitForSingleObject(process.get(), 250);
                 if (waitResult == WAIT_OBJECT_0)
@@ -53,7 +54,7 @@ namespace AppInstaller::CLI::Workflow
                 }
             }
 
-            if (progress.IsCancelled())
+            if (progress.IsCancelledBy(CancelReason::Any))
             {
                 return {};
             }
@@ -188,17 +189,14 @@ namespace AppInstaller::CLI::Workflow
         {
             std::string args = "/x" + productCode.get();
 
-            // Set UI level for MsiExec with the /q flag.
-            // If interactive is requested, use the default instead of Reduced or Full as the installer may not use them.
+            // https://learn.microsoft.com/en-us/windows/win32/msi/standard-installer-command-line-options
             if (context.Args.Contains(Execution::Args::Type::Silent))
             {
-                // n = None = silent
-                args += " /qn";
+                args += " /quiet /norestart";
             }
             else if (!context.Args.Contains(Execution::Args::Type::Interactive))
             {
-                // b = Basic = only progress bar
-                args += " /qb";
+                args += " /passive /norestart";
             }
 
             return args;

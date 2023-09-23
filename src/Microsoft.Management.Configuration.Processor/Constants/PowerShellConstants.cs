@@ -17,13 +17,14 @@ namespace Microsoft.Management.Configuration.Processor.Constants
         internal static class Variables
         {
             public const string PSEdition = "PSEdition";
+            public const string Error = "Error";
             public const string PSModulePath = "env:PSModulePath";
         }
 
         internal static class Modules
         {
             public const string PSDesiredStateConfiguration = "PSDesiredStateConfiguration";
-            public const string PSDesiredStateConfigurationMinVersion = "2.0.6";
+            public const string PSDesiredStateConfigurationMinVersion = "2.0.7";
             public const string PowerShellGet = "PowerShellGet";
             public const string PowerShellGetMinVersion = "2.2.5";
             public const string PSDesiredStateConfigurationMaxVersion = "2.*";
@@ -42,10 +43,13 @@ namespace Microsoft.Management.Configuration.Processor.Constants
             public const string InstallModule = "Install-Module";
             public const string InvokeDscResource = "Invoke-DscResource";
             public const string SaveModule = "Save-Module";
+            public const string FindModule = "Find-Module";
+            public const string ImportCliXml = "Import-CliXml";
         }
 
         internal static class Parameters
         {
+            public const string AllowPrerelease = "AllowPrerelease";
             public const string Force = "Force";
             public const string FullyQualifiedName = "FullyQualifiedName";
             public const string Guid = "GUID";
@@ -63,6 +67,7 @@ namespace Microsoft.Management.Configuration.Processor.Constants
             public const string Recurse = "Recurse";
             public const string Repository = "Repository";
             public const string RequiredVersion = "RequiredVersion";
+            public const string Scope = "Scope";
         }
 
         internal static class DscMethods

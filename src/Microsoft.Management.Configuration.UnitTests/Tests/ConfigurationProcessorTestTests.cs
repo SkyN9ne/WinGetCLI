@@ -12,6 +12,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
     using System.IO;
     using System.Linq;
     using System.Runtime.InteropServices;
+    using Microsoft.CodeAnalysis.Emit;
     using Microsoft.Management.Configuration.UnitTests.Fixtures;
     using Microsoft.Management.Configuration.UnitTests.Helpers;
     using Microsoft.VisualBasic;
@@ -23,6 +24,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
     /// Unit tests for running test on the processor.
     /// </summary>
     [Collection("UnitTestCollection")]
+    [OutOfProc]
     public class ConfigurationProcessorTestTests : ConfigurationProcessorTestBase
     {
         /// <summary>
@@ -41,7 +43,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void TestSet_SetProcessorError()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
+            ConfigurationSet configurationSet = this.ConfigurationSet();
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             factory.Exceptions.Add(configurationSet, new FileNotFoundException());
@@ -49,6 +51,8 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
 
             Assert.Throws<FileNotFoundException>(() => processor.TestSet(configurationSet));
+
+            Assert.Empty(this.EventSink.Events);
         }
 
         /// <summary>
@@ -57,10 +61,10 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void TestSet_UnitProcessorCreationError()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnitThrows = new ConfigurationUnit();
-            ConfigurationUnit configurationUnitWorks = new ConfigurationUnit();
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnitThrows, configurationUnitWorks };
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitThrows = this.ConfigurationUnit();
+            ConfigurationUnit configurationUnitWorks = this.ConfigurationUnit();
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnitThrows, configurationUnitWorks };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
@@ -81,12 +85,16 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             Assert.NotNull(throwsResult.ResultInformation);
             Assert.NotNull(throwsResult.ResultInformation.ResultCode);
             Assert.IsType<NullReferenceException>(throwsResult.ResultInformation.ResultCode);
+            Assert.Equal(ConfigurationUnitResultSource.Internal, throwsResult.ResultInformation.ResultSource);
 
             TestConfigurationUnitResult worksResult = result.UnitResults.First(x => x.Unit == configurationUnitWorks);
             Assert.NotNull(worksResult);
             Assert.Equal(ConfigurationTestResult.Positive, worksResult.TestResult);
             Assert.NotNull(worksResult.ResultInformation);
             Assert.Null(worksResult.ResultInformation.ResultCode);
+            Assert.Equal(ConfigurationUnitResultSource.None, worksResult.ResultInformation.ResultSource);
+
+            this.VerifySummaryEvent(configurationSet, result, throwsResult.ResultInformation.ResultCode.HResult, ConfigurationUnitResultSource.Internal);
         }
 
         /// <summary>
@@ -95,10 +103,10 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void TestSet_UnitProcessorExecutionError()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnitThrows = new ConfigurationUnit();
-            ConfigurationUnit configurationUnitWorks = new ConfigurationUnit();
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnitWorks, configurationUnitThrows };
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitThrows = this.ConfigurationUnit();
+            ConfigurationUnit configurationUnitWorks = this.ConfigurationUnit();
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnitWorks, configurationUnitThrows };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
@@ -120,12 +128,16 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             Assert.NotNull(throwsResult.ResultInformation);
             Assert.NotNull(throwsResult.ResultInformation.ResultCode);
             Assert.IsType<NullReferenceException>(throwsResult.ResultInformation.ResultCode);
+            Assert.Equal(ConfigurationUnitResultSource.Internal, throwsResult.ResultInformation.ResultSource);
 
             TestConfigurationUnitResult worksResult = result.UnitResults.First(x => x.Unit == configurationUnitWorks);
             Assert.NotNull(worksResult);
             Assert.Equal(ConfigurationTestResult.Positive, worksResult.TestResult);
             Assert.NotNull(worksResult.ResultInformation);
             Assert.Null(worksResult.ResultInformation.ResultCode);
+            Assert.Equal(ConfigurationUnitResultSource.None, worksResult.ResultInformation.ResultSource);
+
+            this.VerifySummaryEvent(configurationSet, result, throwsResult.ResultInformation.ResultCode.HResult, ConfigurationUnitResultSource.Internal);
         }
 
         /// <summary>
@@ -134,18 +146,19 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void TestSet_UnitProcessorResultError()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnitThrows = new ConfigurationUnit();
-            ConfigurationUnit configurationUnitWorks = new ConfigurationUnit();
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnitWorks, configurationUnitThrows };
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitThrows = this.ConfigurationUnit();
+            ConfigurationUnit configurationUnitWorks = this.ConfigurationUnit();
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnitWorks, configurationUnitThrows };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
             TestConfigurationUnitProcessor unitProcessor = setProcessor.CreateTestProcessor(configurationUnitThrows);
-            TestSettingsResult testResult = new TestSettingsResult();
+            TestSettingsResultInstance testResult = new TestSettingsResultInstance(configurationUnitThrows);
             testResult.TestResult = ConfigurationTestResult.Failed;
-            testResult.ResultInformation.ResultCode = new NullReferenceException();
-            testResult.ResultInformation.Description = "Failed again";
+            testResult.InternalResult.ResultCode = new NullReferenceException();
+            testResult.InternalResult.Description = "Failed again";
+            testResult.InternalResult.ResultSource = ConfigurationUnitResultSource.UnitProcessing;
             unitProcessor.TestSettingsDelegate = () => testResult;
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
@@ -164,12 +177,16 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             Assert.NotNull(throwsResult.ResultInformation.ResultCode);
             Assert.IsType<NullReferenceException>(throwsResult.ResultInformation.ResultCode);
             Assert.Equal(testResult.ResultInformation.Description, throwsResult.ResultInformation.Description);
+            Assert.Equal(testResult.ResultInformation.ResultSource, throwsResult.ResultInformation.ResultSource);
 
             TestConfigurationUnitResult worksResult = result.UnitResults.First(x => x.Unit == configurationUnitWorks);
             Assert.NotNull(worksResult);
             Assert.Equal(ConfigurationTestResult.Positive, worksResult.TestResult);
             Assert.NotNull(worksResult.ResultInformation);
             Assert.Null(worksResult.ResultInformation.ResultCode);
+            Assert.Equal(ConfigurationUnitResultSource.None, worksResult.ResultInformation.ResultSource);
+
+            this.VerifySummaryEvent(configurationSet, result, testResult.ResultInformation.ResultCode.HResult, testResult.ResultInformation.ResultSource);
         }
 
         /// <summary>
@@ -206,27 +223,28 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         /// <param name="overallResult">The expected overall test result.</param>
         private void RunTestSetTestForResultTypes(ConfigurationTestResult[] resultTypes, ConfigurationTestResult overallResult)
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
+            ConfigurationSet configurationSet = this.ConfigurationSet();
             ConfigurationUnit[] configurationUnits = new ConfigurationUnit[resultTypes.Length];
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
 
-            TestSettingsResult positiveResult = new TestSettingsResult();
+            TestSettingsResultInstance positiveResult = new TestSettingsResultInstance(configurationUnits[0]);
             positiveResult.TestResult = ConfigurationTestResult.Positive;
 
-            TestSettingsResult negativeResult = new TestSettingsResult();
+            TestSettingsResultInstance negativeResult = new TestSettingsResultInstance(configurationUnits[0]);
             negativeResult.TestResult = ConfigurationTestResult.Negative;
 
-            TestSettingsResult failedResult = new TestSettingsResult();
+            TestSettingsResultInstance failedResult = new TestSettingsResultInstance(configurationUnits[0]);
             failedResult.TestResult = ConfigurationTestResult.Failed;
-            failedResult.ResultInformation.ResultCode = new NullReferenceException();
-            failedResult.ResultInformation.Description = "Failed again";
+            failedResult.InternalResult.ResultCode = new NullReferenceException();
+            failedResult.InternalResult.Description = "Failed again";
+            failedResult.InternalResult.ResultSource = ConfigurationUnitResultSource.UnitProcessing;
 
             for (int i = 0; i < resultTypes.Length; ++i)
             {
-                configurationUnits[i] = new ConfigurationUnit();
-                configurationUnits[i].UnitName = $"Unit {i}";
+                configurationUnits[i] = this.ConfigurationUnit();
+                configurationUnits[i].Type = $"Unit {i}";
                 TestConfigurationUnitProcessor unitProcessor = setProcessor.CreateTestProcessor(configurationUnits[i]);
 
                 switch (resultTypes[i])
@@ -246,7 +264,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
                 }
             }
 
-            configurationSet.ConfigurationUnits = configurationUnits;
+            configurationSet.Units = configurationUnits;
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
 
@@ -256,6 +274,9 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             Assert.Equal(overallResult, result.TestResult);
             Assert.NotNull(result.UnitResults);
             Assert.Equal(resultTypes.Length, result.UnitResults.Count);
+
+            int summaryEventResult = 0;
+            ConfigurationUnitResultSource resultSource = ConfigurationUnitResultSource.None;
 
             for (int i = 0; i < resultTypes.Length; ++i)
             {
@@ -272,14 +293,20 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
                     case ConfigurationTestResult.NotRun:
                         Assert.Null(unitResult.ResultInformation.ResultCode);
                         Assert.Empty(unitResult.ResultInformation.Description);
+                        Assert.Equal(ConfigurationUnitResultSource.None, unitResult.ResultInformation.ResultSource);
                         break;
                     case ConfigurationTestResult.Failed:
                         Assert.NotNull(unitResult.ResultInformation.ResultCode);
                         Assert.IsType<NullReferenceException>(unitResult.ResultInformation.ResultCode);
                         Assert.Equal(failedResult.ResultInformation.Description, unitResult.ResultInformation.Description);
+                        Assert.Equal(failedResult.ResultInformation.ResultSource, unitResult.ResultInformation.ResultSource);
+                        summaryEventResult = unitResult.ResultInformation.ResultCode.HResult;
+                        resultSource = unitResult.ResultInformation.ResultSource;
                         break;
                 }
             }
+
+            this.VerifySummaryEvent(configurationSet, result, summaryEventResult, resultSource);
         }
     }
 }

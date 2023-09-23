@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "ExecutionReporter.h"
+#include <AppInstallerErrors.h>
 
 
 namespace AppInstaller::CLI::Execution
@@ -220,12 +221,12 @@ namespace AppInstaller::CLI::Execution
     {
         if (m_spinner)
         {
-            m_spinner->SetMessage(message);
+            m_spinner->Message(message);
         }
 
         if (m_progressBar)
         {
-            m_progressBar->SetMessage(message);
+            m_progressBar->Message(message);
         }
     }
 
@@ -246,13 +247,54 @@ namespace AppInstaller::CLI::Execution
         GetBasicOutputStream() << VirtualTerminal::Cursor::Visibility::EnableShow;
     };
 
+    Reporter::AsyncProgressScope::AsyncProgressScope(Reporter& reporter, IProgressSink* sink, bool hideProgressWhenDone) :
+        m_reporter(reporter), m_callback(sink)
+    {
+        reporter.SetProgressCallback(&m_callback);
+        sink->BeginProgress();
+        m_hideProgressWhenDone = hideProgressWhenDone;
+    }
+
+    Reporter::AsyncProgressScope::~AsyncProgressScope()
+    {
+        m_reporter.get().SetProgressCallback(nullptr);
+        m_callback.GetSink()->EndProgress(m_hideProgressWhenDone);
+    }
+
+    ProgressCallback& Reporter::AsyncProgressScope::Callback()
+    {
+        return m_callback;
+    }
+
+    IProgressCallback* Reporter::AsyncProgressScope::operator->()
+    {
+        return &m_callback;
+    }
+
+    bool Reporter::AsyncProgressScope::HideProgressWhenDone() const
+    {
+        return m_hideProgressWhenDone;
+    }
+
+    void Reporter::AsyncProgressScope::HideProgressWhenDone(bool value)
+    {
+        m_hideProgressWhenDone.store(value);
+    }
+
+    std::unique_ptr<Reporter::AsyncProgressScope> Reporter::BeginAsyncProgress(bool hideProgressWhenDone)
+    {
+        return std::make_unique<AsyncProgressScope>(*this, m_progressSink.load(), hideProgressWhenDone);
+    }
+
     void Reporter::SetProgressCallback(ProgressCallback* callback)
     {
         auto lock = m_progressCallbackLock.lock_exclusive();
+        // Attempting two progress operations at the same time; not supported.
+        THROW_HR_IF(HRESULT_FROM_WIN32(ERROR_INVALID_STATE), m_progressCallback != nullptr && callback != nullptr);
         m_progressCallback = callback;
     }
 
-    void Reporter::CancelInProgressTask(bool force)
+    void Reporter::CancelInProgressTask(bool force, CancelReason reason)
     {
         // TODO: Maybe ask the user if they really want to cancel?
         UNREFERENCED_PARAMETER(force);
@@ -260,7 +302,11 @@ namespace AppInstaller::CLI::Execution
         ProgressCallback* callback = m_progressCallback.load();
         if (callback)
         {
-            callback->Cancel();
+            if (!callback->IsCancelledBy(CancelReason::Any))
+            {
+                callback->SetProgressMessage(Resource::String::CancellingOperation());
+                callback->Cancel(reason);
+            }
         }
     }
 

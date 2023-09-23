@@ -36,10 +36,6 @@ namespace AppInstaller::CLI::Workflow
 
     void ReportDependencies::operator()(Execution::Context& context) const
     {
-        if (!Settings::ExperimentalFeature::IsEnabled(Settings::ExperimentalFeature::Feature::Dependencies))
-        {
-            return;
-        }
         auto info = context.Reporter.Info();
 
         const auto& dependencies = context.Get<Execution::Data::Dependencies>();
@@ -81,40 +77,32 @@ namespace AppInstaller::CLI::Workflow
         }
     }
 
-    void GetInstallersDependenciesFromManifest(Execution::Context& context) {
-        if (Settings::ExperimentalFeature::IsEnabled(Settings::ExperimentalFeature::Feature::Dependencies))
+    void GetInstallersDependenciesFromManifest(Execution::Context& context)
+    {
+        const auto& manifest = context.Get<Execution::Data::Manifest>();
+        DependencyList allDependencies;
+
+        for (const auto& installer : manifest.Installers)
         {
-            const auto& manifest = context.Get<Execution::Data::Manifest>();
-            DependencyList allDependencies;
-
-            for (const auto& installer : manifest.Installers)
-            {
-                allDependencies.Add(installer.Dependencies);
-            }
-
-            context.Add<Execution::Data::Dependencies>(std::move(allDependencies));
+            allDependencies.Add(installer.Dependencies);
         }
+
+        context.Add<Execution::Data::Dependencies>(std::move(allDependencies));
     }
 
     void GetDependenciesFromInstaller(Execution::Context& context)
     {
-        if (Settings::ExperimentalFeature::IsEnabled(Settings::ExperimentalFeature::Feature::Dependencies))
+        const auto& installer = context.Get<Execution::Data::Installer>();
+        if (installer)
         {
-            const auto& installer = context.Get<Execution::Data::Installer>();
-            if (installer)
-            {
-                context.Add<Execution::Data::Dependencies>(installer->Dependencies);
-            }
+            context.Add<Execution::Data::Dependencies>(installer->Dependencies);
         }
     }
 
     void GetDependenciesInfoForUninstall(Execution::Context& context)
     {
-        if (Settings::ExperimentalFeature::IsEnabled(Settings::ExperimentalFeature::Feature::Dependencies))
-        {
-            // TODO make best effort to get the correct installer information, it may be better to have a record of installations and save the correct installers
-            context.Add<Execution::Data::Dependencies>(DependencyList()); // sending empty list of dependencies for now
-        }
+        // TODO make best effort to get the correct installer information, it may be better to have a record of installations and save the correct installers
+        context.Add<Execution::Data::Dependencies>(DependencyList()); // sending empty list of dependencies for now
     }
 
     void OpenDependencySource(Execution::Context& context)
@@ -123,14 +111,18 @@ namespace AppInstaller::CLI::Workflow
         {
             const auto& packageVersion = context.Get<Execution::Data::PackageVersion>();
             context.Add<Execution::Data::DependencySource>(packageVersion->GetSource());
-            context <<
-                Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed, true, Repository::CompositeSearchBehavior::AvailablePackages);
         }
         else
         {
             // install from manifest requires --dependency-source to be set
             context <<
-                Workflow::OpenSource(true) <<
+                Workflow::OpenSource(true);
+        }
+
+        if (WI_IsFlagClear(context.GetFlags(), Execution::ContextFlag::InstallerDownloadOnly))
+        {
+            // Installed source is not needed when only downloading the installer.
+            context <<
                 Workflow::OpenCompositeSource(Repository::PredefinedSource::Installed, true, Repository::CompositeSearchBehavior::AvailablePackages);
         }
     }
@@ -233,13 +225,8 @@ namespace AppInstaller::CLI::Workflow
         }
     }
 
-    void ManagePackageDependencies::operator()(Execution::Context& context) const
+    void CreateDependencySubContexts::operator()(Execution::Context& context) const
     {
-        if (!Settings::ExperimentalFeature::IsEnabled(Settings::ExperimentalFeature::Feature::Dependencies))
-        {
-            return;
-        }
-
         auto info = context.Reporter.Info();
         auto error = context.Reporter.Error();
         const auto& rootManifest = context.Get<Execution::Data::Manifest>();
@@ -280,6 +267,7 @@ namespace AppInstaller::CLI::Workflow
                         std::move(nodeProcessor.GetPackageInstalledVersion()),
                         std::move(nodeProcessor.GetManifest()),
                         std::move(nodeProcessor.GetPreferredInstaller()) };
+
                     idToPackageMap.emplace(node.Id(), std::move(dependencyPackageCandidate));
                 };
 
@@ -332,17 +320,15 @@ namespace AppInstaller::CLI::Workflow
                 dependencyContext.Add<Execution::Data::InstalledPackageVersion>(itr->second.InstalledPackageVersion);
                 dependencyContext.Add<Execution::Data::Installer>(itr->second.Installer);
 
+                if (WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::InstallerDownloadOnly))
+                {
+                    dependencyContext.Add<Execution::Data::DownloadDirectory>(context.Get<Execution::Data::DownloadDirectory>() / "Dependencies");
+                }
+
                 dependencyPackageContexts.emplace_back(std::move(dependencyContextPtr));
             }
         }
 
-        if (!dependencyPackageContexts.empty())
-        {
-            info << Resource::String::DependenciesFlowInstall << std::endl;
-        }
-
-        // Install dependencies in the correct order
         context.Add<Execution::Data::PackageSubContexts>(std::move(dependencyPackageContexts));
-        context << Workflow::InstallMultiplePackages(m_dependencyReportMessage, APPINSTALLER_CLI_ERROR_INSTALL_DEPENDENCIES, {}, false, true, true);
     }
 }

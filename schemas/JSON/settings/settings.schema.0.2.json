@@ -28,6 +28,11 @@
             "rainbow",
             "retro"
           ]
+        },
+        "anonymizeDisplayedPaths": {
+          "description": "Replaces some known folder paths with their respective environment variable",
+          "type": "boolean",
+          "default": true
         }
       }
     },
@@ -88,6 +93,28 @@
             "minItems": 1,
             "maxItems": 4
           }
+        },
+        "installerTypes": {
+          "description": "The installerType(s) to use for a package install",
+          "type": "array",
+          "items": {
+            "uniqueItems": "true",
+            "type": "string",
+            "enum": [
+              "inno",
+              "wix",
+              "msi",
+              "nullsoft",
+              "zip",
+              "msix",
+              "exe",
+              "burn",
+              "msstore",
+              "portable"
+            ],
+            "minItems": 1,
+            "maxItems": 9
+          }
         }
       }
     },
@@ -97,15 +124,15 @@
       "properties": {
         "preferences": { "$ref": "#/definitions/InstallPrefReq" },
         "requirements": { "$ref": "#/definitions/InstallPrefReq" },
-        "ignoreWarnings": {
-          "description": "Controls whether blocking warning messages shown to the user during an install or upgrade are ignored",
+        "skipDependencies": {
+          "description": "Controls whether package dependencies and Windows Features are skipped during installation",
           "type": "boolean",
           "default": false
         },
         "disableInstallNotes": {
           "description": "Controls whether installation notes are shown after a successful install",
           "type": "boolean",
-          "default":  false
+          "default": false
         },
         "portablePackageUserRoot": {
           "description": "The default root directory where packages are installed to under User scope. Applies to the portable installer type.",
@@ -131,7 +158,18 @@
         "purgePortablePackage": {
           "description": "Controls whether the default behavior for uninstall removes all files and directories relevant to this package. Only applies to the portable installerType.",
           "type": "boolean",
-          "default":  false
+          "default": false
+        }
+      }
+    },
+    "DownloadBehavior": {
+      "description": "Download settings",
+      "type": "object",
+      "properties": {
+        "defaultDownloadDirectory": {
+          "description": "The default directory where installers are downloaded to.",
+          "type": "string",
+          "default": "%USERPROFILE%/Downloads/"
         }
       }
     },
@@ -194,28 +232,18 @@
           "type": "boolean",
           "default": false
         },
-        "dependencies": {
-          "description": "Support for package dependencies",
-          "type": "boolean",
-          "default": false
-        },
         "directMSI": {
           "description": "Enable use of MSI APIs rather than msiexec for MSI installs",
           "type": "boolean",
           "default": false
         },
-        "uninstallPreviousArgument": {
-          "description": "Enable argument to override upgrade behavior to UninstallPrevious",
-          "type": "boolean",
-          "default": false
-        },
-        "pinning": {
-          "description": "Enable support for package pinning",
-          "type": "boolean",
-          "default": false
-        },
         "configuration": {
           "description": "Enable support for configuration",
+          "type": "boolean",
+          "default": false
+        },
+        "windowsFeature": {
+          "description": "Enable support for enabling Windows Feature(s)",
           "type": "boolean",
           "default": false
         }

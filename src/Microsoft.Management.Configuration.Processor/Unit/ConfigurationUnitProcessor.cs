@@ -8,12 +8,11 @@ namespace Microsoft.Management.Configuration.Processor.Unit
 {
     using System;
     using System.Collections.Generic;
-    using System.Management.Automation;
     using Microsoft.Management.Configuration;
+    using Microsoft.Management.Configuration.Processor.Exceptions;
     using Microsoft.Management.Configuration.Processor.Extensions;
     using Microsoft.Management.Configuration.Processor.Helpers;
     using Microsoft.Management.Configuration.Processor.ProcessorEnvironments;
-    using Microsoft.PowerShell.Commands;
 
     /// <summary>
     /// Provides access to a specific configuration unit within the runtime.
@@ -42,50 +41,31 @@ namespace Microsoft.Management.Configuration.Processor.Unit
         public ConfigurationUnit Unit => this.unitResource.Unit;
 
         /// <summary>
-        /// Gets the directives overlay that the processor was created with.
-        /// </summary>
-        public IReadOnlyDictionary<string, object>? DirectivesOverlay => this.unitResource.DirectivesOverlay;
-
-        /// <summary>
         /// Gets or initializes the set processor factory.
         /// </summary>
-        internal ConfigurationSetProcessorFactory? SetProcessorFactory { get; init; }
+        internal PowerShellConfigurationSetProcessorFactory? SetProcessorFactory { get; init; }
 
         /// <summary>
         /// Gets the current system state for the configuration unit.
         /// Calls Get on the DSC resource.
         /// </summary>
-        /// <returns>A <see cref="GetSettingsResult"/>.</returns>
-        public GetSettingsResult GetSettings()
+        /// <returns>A <see cref="IGetSettingsResult"/>.</returns>
+        public IGetSettingsResult GetSettings()
         {
             this.OnDiagnostics(DiagnosticLevel.Verbose, $"Invoking `Get` for resource: {this.unitResource.UnitInternal.ToIdentifyingString()}...");
 
-            var result = new GetSettingsResult();
+            var result = new GetSettingsResult(this.Unit);
+
             try
             {
                 result.Settings = this.processorEnvironment.InvokeGetResource(
-                    this.unitResource.GetExpandedSettings(),
+                    this.unitResource.GetSettings(),
                     this.unitResource.ResourceName,
                     this.unitResource.Module);
             }
-            catch (Exception e) when (e is RuntimeException ||
-                                      e is WriteErrorException)
-            {
-                RuntimeException? re = e as RuntimeException;
-                if (re != null)
-                {
-                    this.OnDiagnostics(DiagnosticLevel.Error, $"An error occurred within the configuration unit when attempting `Get`:\n{re.ErrorRecord.ToString()}\n{re.ErrorRecord.ScriptStackTrace}");
-                }
-
-                this.OnDiagnostics(DiagnosticLevel.Verbose, e.ToString());
-                var inner = e.GetMostInnerException();
-                result.ResultInformation.ResultCode = inner;
-                result.ResultInformation.Description = e.ToString();
-            }
             catch (Exception e)
             {
-                this.OnDiagnostics(DiagnosticLevel.Error, e.ToString());
-                throw;
+                this.ExtractExceptionInformation(e, result.InternalResult);
             }
 
             this.OnDiagnostics(DiagnosticLevel.Verbose, $"... done invoking `Get`.");
@@ -96,8 +76,8 @@ namespace Microsoft.Management.Configuration.Processor.Unit
         /// Determines if the system is already in the state described by the configuration unit.
         /// Calls Test on the DSC resource.
         /// </summary>
-        /// <returns>A <see cref="TestSettingsResult"/>.</returns>
-        public TestSettingsResult TestSettings()
+        /// <returns>A <see cref="ITestSettingsResult"/>.</returns>
+        public ITestSettingsResult TestSettings()
         {
             this.OnDiagnostics(DiagnosticLevel.Verbose, $"Invoking `Test` for resource: {this.unitResource.UnitInternal.ToIdentifyingString()}...");
 
@@ -107,35 +87,20 @@ namespace Microsoft.Management.Configuration.Processor.Unit
                 throw new NotSupportedException();
             }
 
-            var result = new TestSettingsResult();
+            var result = new TestSettingsResult(this.Unit);
             result.TestResult = ConfigurationTestResult.Failed;
             try
             {
                 bool testResult = this.processorEnvironment.InvokeTestResource(
-                    this.unitResource.GetExpandedSettings(),
+                    this.unitResource.GetSettings(),
                     this.unitResource.ResourceName,
                     this.unitResource.Module);
 
                 result.TestResult = testResult ? ConfigurationTestResult.Positive : ConfigurationTestResult.Negative;
             }
-            catch (Exception e) when (e is RuntimeException ||
-                                      e is WriteErrorException)
-            {
-                RuntimeException? re = e as RuntimeException;
-                if (re != null)
-                {
-                    this.OnDiagnostics(DiagnosticLevel.Error, $"An error occurred within the configuration unit when attempting `Test`:\n{re.ErrorRecord.ToString()}\n{re.ErrorRecord.ScriptStackTrace}");
-                }
-
-                this.OnDiagnostics(DiagnosticLevel.Verbose, e.ToString());
-                var inner = e.GetMostInnerException();
-                result.ResultInformation.ResultCode = inner;
-                result.ResultInformation.Description = e.ToString();
-            }
             catch (Exception e)
             {
-                this.OnDiagnostics(DiagnosticLevel.Error, e.ToString());
-                throw;
+                this.ExtractExceptionInformation(e, result.InternalResult);
             }
 
             this.OnDiagnostics(DiagnosticLevel.Verbose, $"... done invoking `Test`.");
@@ -146,8 +111,8 @@ namespace Microsoft.Management.Configuration.Processor.Unit
         /// Applies the state described in the configuration unit.
         /// Calls Set in the DSC resource.
         /// </summary>
-        /// <returns>A <see cref="ApplySettingsResult"/>.</returns>
-        public ApplySettingsResult ApplySettings()
+        /// <returns>A <see cref="IApplySettingsResult"/>.</returns>
+        public IApplySettingsResult ApplySettings()
         {
             this.OnDiagnostics(DiagnosticLevel.Verbose, $"Invoking `Apply` for resource: {this.unitResource.UnitInternal.ToIdentifyingString()}...");
 
@@ -158,36 +123,43 @@ namespace Microsoft.Management.Configuration.Processor.Unit
                 throw new NotSupportedException();
             }
 
-            var result = new ApplySettingsResult();
+            var result = new ApplySettingsResult(this.Unit);
             try
             {
                 result.RebootRequired = this.processorEnvironment.InvokeSetResource(
-                                            this.unitResource.GetExpandedSettings(),
+                                            this.unitResource.GetSettings(),
                                             this.unitResource.ResourceName,
                                             this.unitResource.Module);
             }
-            catch (Exception e) when (e is RuntimeException ||
-                                      e is WriteErrorException)
-            {
-                RuntimeException? re = e as RuntimeException;
-                if (re != null)
-                {
-                    this.OnDiagnostics(DiagnosticLevel.Error, $"An error occurred within the configuration unit when attempting `Set`:\n{re.ErrorRecord.ToString()}\n{re.ErrorRecord.ScriptStackTrace}");
-                }
-
-                this.OnDiagnostics(DiagnosticLevel.Verbose, e.ToString());
-                var inner = e.GetMostInnerException();
-                result.ResultInformation.ResultCode = inner;
-                result.ResultInformation.Description = e.ToString();
-            }
             catch (Exception e)
             {
-                this.OnDiagnostics(DiagnosticLevel.Error, e.ToString());
-                throw;
+                this.ExtractExceptionInformation(e, result.InternalResult);
             }
 
             this.OnDiagnostics(DiagnosticLevel.Verbose, $"... done invoking `Apply`.");
             return result;
+        }
+
+        private void ExtractExceptionInformation(Exception e, ConfigurationUnitResultInformation resultInformation)
+        {
+            this.OnDiagnostics(DiagnosticLevel.Verbose, e.ToString());
+
+            IConfigurationUnitResultException? configurationUnitResultException = e as IConfigurationUnitResultException;
+            if (configurationUnitResultException != null)
+            {
+                resultInformation.ResultCode = e;
+                resultInformation.Description = configurationUnitResultException.Description;
+                resultInformation.Details = configurationUnitResultException.Details;
+                resultInformation.ResultSource = configurationUnitResultException.ResultSource;
+            }
+            else
+            {
+                var inner = e.GetMostInnerException();
+                resultInformation.ResultCode = inner;
+                resultInformation.Description = e.Message;
+                resultInformation.Details = e.ToString();
+                resultInformation.ResultSource = ConfigurationUnitResultSource.Internal;
+            }
         }
 
         private void OnDiagnostics(DiagnosticLevel level, string message)

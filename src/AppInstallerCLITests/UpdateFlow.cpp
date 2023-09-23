@@ -623,10 +623,9 @@ TEST_CASE("UpdateFlow_Dependencies", "[UpdateFlow][workflow][dependencies]")
     auto previousThreadGlobals = context.SetForCurrentThread();
     OverrideForCompositeInstalledSource(context, CreateTestSource({ TSR::TestInstaller_Exe_Dependencies }));
     OverrideForShellExecute(context);
-    context.Args.AddArg(Execution::Args::Type::Query, TSR::TestInstaller_Exe_Dependencies.Query);;
+    OverrideEnableWindowsFeaturesDependencies(context);
 
-    TestUserSettings settings;
-    settings.Set<AppInstaller::Settings::Setting::EFDependencies>({ true });
+    context.Args.AddArg(Execution::Args::Type::Query, TSR::TestInstaller_Exe_Dependencies.Query);;
 
     UpgradeCommand update({});
     update.Execute(context);
@@ -635,7 +634,7 @@ TEST_CASE("UpdateFlow_Dependencies", "[UpdateFlow][workflow][dependencies]")
     std::string updateResultStr = updateOutput.str();
 
     // Verify dependencies are informed
-    REQUIRE(updateResultStr.find(Resource::LocString(Resource::String::InstallAndUpgradeCommandsReportDependencies).get()) != std::string::npos);
+    REQUIRE(updateResultStr.find(Resource::LocString(Resource::String::PackageRequiresDependencies).get()) != std::string::npos);
     REQUIRE(updateResultStr.find("PreviewIIS") != std::string::npos);
     REQUIRE(updateResultStr.find("Preview VC Runtime") != std::string::npos);
 }

@@ -215,8 +215,23 @@
     <ClInclude Include="Workflows\ConfigurationFlow.h">
       <Filter>Workflows</Filter>
     </ClInclude>
-    <ClInclude Include="ConfigurationSetProcessorFactoryRemoting.h">
-      <Filter>Workflows</Filter>
+    <ClInclude Include="Public\ConfigurationSetProcessorFactoryRemoting.h">
+      <Filter>Public</Filter>
+    </ClInclude>
+    <ClInclude Include="Commands\DebugCommand.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="Commands\TestCommand.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="Commands\DownloadCommand.h">
+      <Filter>Commands</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfigurationCommon.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Commands\ErrorCommand.h">
+      <Filter>Commands</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -401,7 +416,22 @@
       <Filter>Workflows</Filter>
     </ClCompile>
     <ClCompile Include="ConfigurationSetProcessorFactoryRemoting.cpp">
-      <Filter>Workflows</Filter>
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Commands\DebugCommand.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="Commands\TestCommand.cpp">
+      <Filter>Commands</Filter>
+    </ClCompile>
+    <ClCompile Include="Commands\DownloadCommand.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigurationCommon.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Commands\ErrorCommand.cpp">
+      <Filter>Commands</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

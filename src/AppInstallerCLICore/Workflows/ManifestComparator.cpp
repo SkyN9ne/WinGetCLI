@@ -1,10 +1,12 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 #include "pch.h"
-#include "WorkflowBase.h"
-#include "ExecutionContext.h"
 #include "ManifestComparator.h"
+#include "WorkflowBase.h"
+#include <AppInstallerLogging.h>
 #include <winget/UserSettings.h>
+#include <winget/Runtime.h>
+#include <winget/Locale.h>
 
 using namespace AppInstaller::CLI;
 using namespace AppInstaller::Manifest;
@@ -241,6 +243,113 @@ namespace AppInstaller::CLI::Workflow
             }
 
             std::vector<Utility::Architecture> m_allowedArchitectures;
+        };
+
+        struct InstallerTypeComparator : public details::ComparisonField
+        {
+            InstallerTypeComparator(std::vector<InstallerTypeEnum> preference, std::vector<InstallerTypeEnum> requirement) :
+                details::ComparisonField("Installer Type"), m_preference(std::move(preference)), m_requirement(std::move(requirement))
+            {
+                m_preferenceAsString = Utility::ConvertContainerToString(m_preference, InstallerTypeToString);
+                m_requirementAsString = Utility::ConvertContainerToString(m_requirement, InstallerTypeToString);
+                AICLI_LOG(CLI, Verbose,
+                    << "InstallerType Comparator created with Required InstallerTypes: " << m_requirementAsString
+                    << " , Preferred InstallerTypes: " << m_preferenceAsString);
+            }
+
+            static std::unique_ptr<InstallerTypeComparator> Create(const Execution::Args& args)
+            {
+                std::vector<InstallerTypeEnum> preference;
+                std::vector<InstallerTypeEnum> requirement;
+
+                if (args.Contains(Execution::Args::Type::InstallerType))
+                {
+                    requirement.emplace_back(Manifest::ConvertToInstallerTypeEnum(std::string(args.GetArg(Execution::Args::Type::InstallerType))));
+                }
+                else
+                {
+                    preference = Settings::User().Get<Settings::Setting::InstallerTypePreference>();
+                    requirement = Settings::User().Get<Settings::Setting::InstallerTypeRequirement>();
+                }
+
+                if (!preference.empty() || !requirement.empty())
+                {
+                    return std::make_unique<InstallerTypeComparator>(preference, requirement);
+                }
+                else
+                {
+                    return {};
+                }
+            }
+
+            std::string ExplainInapplicable(const Manifest::ManifestInstaller& installer) override
+            {
+                std::string result = "InstallerType [";
+                result += InstallerTypeToString(installer.EffectiveInstallerType());
+                result += "] does not match required InstallerTypes: ";
+                result += m_requirementAsString;
+                return result;
+            }
+
+            InapplicabilityFlags IsApplicable(const Manifest::ManifestInstaller& installer) override
+            {
+                if (!m_requirement.empty())
+                {
+                    // The installer is applicable if the effective or base installer type matches.
+                    if (ContainsInstallerType(m_requirement, installer.EffectiveInstallerType()) ||
+                        ContainsInstallerType(m_requirement, installer.BaseInstallerType))
+                    {
+                        return InapplicabilityFlags::None;
+                    }
+
+                    return InapplicabilityFlags::InstallerType;
+                }
+                else
+                {
+                    return InapplicabilityFlags::None;
+                }
+            }
+
+            bool IsFirstBetter(const Manifest::ManifestInstaller& first, const Manifest::ManifestInstaller& second) override
+            {
+                if (m_preference.empty())
+                {
+                    return false;
+                }
+
+                for (Manifest::InstallerTypeEnum installerTypePreference : m_preference)
+                {
+                    bool isFirstInstallerTypePreferred =
+                        first.EffectiveInstallerType() == installerTypePreference ||
+                        first.BaseInstallerType == installerTypePreference;
+
+                    bool isSecondInstallerTypePreferred =
+                        second.EffectiveInstallerType() == installerTypePreference ||
+                        second.BaseInstallerType == installerTypePreference;
+
+                    if (isFirstInstallerTypePreferred && isSecondInstallerTypePreferred)
+                    {
+                        return false;
+                    }
+                    else if (isFirstInstallerTypePreferred != isSecondInstallerTypePreferred)
+                    {
+                        return isFirstInstallerTypePreferred;
+                    }
+                }
+
+                return false;
+            }
+
+        private:
+            std::vector<InstallerTypeEnum> m_preference;
+            std::vector<InstallerTypeEnum> m_requirement;
+            std::string m_preferenceAsString;
+            std::string m_requirementAsString;
+
+            bool ContainsInstallerType(const std::vector<InstallerTypeEnum>& selection, InstallerTypeEnum installerType)
+            {
+                return std::find(selection.begin(), selection.end(), installerType) != selection.end();
+            }
         };
 
         struct InstalledTypeComparator : public details::ComparisonField
@@ -657,6 +766,7 @@ namespace AppInstaller::CLI::Workflow
         AddComparator(LocaleComparator::Create(context.Args, installationMetadata));
         AddComparator(ScopeComparator::Create(context));
         AddComparator(MachineArchitectureComparator::Create(context, installationMetadata));
+        AddComparator(InstallerTypeComparator::Create(context.Args));
     }
 
     InstallerAndInapplicabilities ManifestComparator::GetPreferredInstaller(const Manifest::Manifest& manifest)

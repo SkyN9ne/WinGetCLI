@@ -6,6 +6,7 @@
 
 namespace Microsoft.Management.Configuration.UnitTests.Tests
 {
+    using System;
     using System.IO;
     using System.Management.Automation;
     using Microsoft.Management.Configuration.Processor.DscModule;
@@ -99,7 +100,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             var dscModule = new DscModuleV2();
 
-            // This doesn't work on 2.0.6
+            // This doesn't work on v2
             ////var allResources = dscModule.GetDscResourcesInModule(
             ////    testEnvironment.Runspace,
             ////    PowerShellHelpers.CreateModuleSpecification(TestModule.SimpleTestResourceModuleName));
@@ -279,7 +280,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             var dscModule = new DscModuleV2();
 
             using PowerShell pwsh = PowerShell.Create(testEnvironment.Runspace);
-            var exception = Assert.Throws<RuntimeException>(() =>
+            var exception = Assert.Throws<InvokeDscResourceException>(() =>
                 dscModule.InvokeGetResource(
                     pwsh,
                     new ValueSet(),
@@ -293,7 +294,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         /// <summary>
         /// Calls Invoke-DscResource Get. Resource writes error.
         /// </summary>
-        [Fact(Skip = "Not supported in PSDesiredStateConfiguration 2.0.6")]
+        [Fact(Skip = "Not supported in PSDesiredStateConfiguration 2.0.7")]
         public void InvokeGetResource_ResourceError()
         {
             var testEnvironment = this.fixture.PrepareTestProcessorEnvironment();
@@ -319,7 +320,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             var dscModule = new DscModuleV2();
             using PowerShell pwsh = PowerShell.Create(testEnvironment.Runspace);
-            var exception = Assert.Throws<RuntimeException>(
+            var exception = Assert.Throws<InvokeDscResourceException>(
                 () => dscModule.InvokeGetResource(
                     pwsh,
                     new ValueSet(),
@@ -327,7 +328,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
                     PowerShellHelpers.CreateModuleSpecification(
                         TestModule.SimpleTestResourceModuleName)));
 
-            Assert.IsType<WriteErrorException>(exception.InnerException);
+            Assert.IsType<RuntimeException>(exception.InnerException);
         }
 
         /// <summary>
@@ -370,7 +371,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             var dscModule = new DscModuleV2();
             using PowerShell pwsh = PowerShell.Create(testEnvironment.Runspace);
-            var exception = Assert.Throws<RuntimeException>(() =>
+            var exception = Assert.Throws<InvokeDscResourceException>(() =>
                 dscModule.InvokeTestResource(
                     pwsh,
                     new ValueSet(),
@@ -384,7 +385,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         /// <summary>
         /// Calls Invoke-DscResource Test. Resource writes error.
         /// </summary>
-        [Fact(Skip = "Not supported in PSDesiredStateConfiguration 2.0.6")]
+        [Fact(Skip = "Not supported in PSDesiredStateConfiguration 2.0.7")]
         public void InvokeTestResource_ResourceError()
         {
             var testEnvironment = this.fixture.PrepareTestProcessorEnvironment();
@@ -410,7 +411,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             var dscModule = new DscModuleV2();
             using PowerShell pwsh = PowerShell.Create(testEnvironment.Runspace);
-            var exception = Assert.Throws<RuntimeException>(() =>
+            var exception = Assert.Throws<InvokeDscResourceException>(() =>
                 _ = dscModule.InvokeTestResource(
                     pwsh,
                     new ValueSet(),
@@ -418,7 +419,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
                     PowerShellHelpers.CreateModuleSpecification(
                         TestModule.SimpleTestResourceModuleName)));
 
-            Assert.IsType<WriteErrorException>(exception.InnerException);
+            Assert.IsType<RuntimeException>(exception.InnerException);
         }
 
         /// <summary>
@@ -460,7 +461,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             var dscModule = new DscModuleV2();
             using PowerShell pwsh = PowerShell.Create(testEnvironment.Runspace);
-            var exception = Assert.Throws<RuntimeException>(() =>
+            var exception = Assert.Throws<InvokeDscResourceException>(() =>
                 dscModule.InvokeSetResource(
                     pwsh,
                     new ValueSet(),
@@ -474,7 +475,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         /// <summary>
         /// Calls Invoke-DscResource Set. Resource writes error.
         /// </summary>
-        [Fact(Skip = "Not supported in PSDesiredStateConfiguration 2.0.6")]
+        [Fact(Skip = "Not supported in PSDesiredStateConfiguration 2.0.7")]
         public void InvokeSetResource_ResourceError()
         {
             var testEnvironment = this.fixture.PrepareTestProcessorEnvironment();
@@ -500,7 +501,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             var dscModule = new DscModuleV2();
             using PowerShell pwsh = PowerShell.Create(testEnvironment.Runspace);
-            var exception = Assert.Throws<RuntimeException>(() =>
+            var exception = Assert.Throws<InvokeDscResourceException>(() =>
                 dscModule.InvokeSetResource(
                     pwsh,
                     new ValueSet(),
@@ -508,7 +509,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
                     PowerShellHelpers.CreateModuleSpecification(
                         TestModule.SimpleTestResourceModuleName)));
 
-            Assert.IsType<WriteErrorException>(exception.InnerException);
+            Assert.IsType<RuntimeException>(exception.InnerException);
         }
 
         /// <summary>
@@ -560,8 +561,6 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         /// <summary>
         /// Calls Invoke-DscResource invalid arguments.
         /// </summary>
-        /// <param name="value">Setting value.</param>
-        /// <param name="rebootRequired">Expected reboot required.</param>
         [Fact]
         public void InvokeSetResource_InvalidArguments()
         {
@@ -575,7 +574,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             };
 
             using PowerShell pwsh = PowerShell.Create(testEnvironment.Runspace);
-            var e = Assert.Throws<InvokeDscResourceSetException>(() => dscModule.InvokeSetResource(
+            var e = Assert.Throws<InvokeDscResourceException>(() => dscModule.InvokeSetResource(
                 pwsh,
                 settings,
                 TestModule.SimpleTestResourceName,
@@ -583,6 +582,41 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
                     TestModule.SimpleTestResourceModuleName)));
 
             Assert.Contains("The property 'Fake' cannot be found on this object.", e.Message);
+            Assert.Equal(ConfigurationUnitResultSource.ConfigurationSet, e.ResultSource);
+        }
+
+        /// <summary>
+        /// Tests GetDscResourcesInModule with versions.
+        /// </summary>
+        [Fact]
+        public void InvokeSetResource_ModulePathSpaces()
+        {
+            // Copy test module to a directory with spaces.
+            using var tmpDir = new TempDirectory(directoryName: Path.Combine(Guid.NewGuid().ToString(), "Path With Spaces"));
+            tmpDir.CopyDirectory(this.fixture.TestModulesPath);
+            var manifestFile = Path.Combine(
+                tmpDir.FullDirectoryPath,
+                TestModule.SimpleTestResourceModuleName,
+                TestModule.SimpleTestResourceManifestFileName);
+
+            var testEnvironment = this.fixture.PrepareTestProcessorEnvironment();
+            testEnvironment.CleanupPSModulePath(this.fixture.TestModulesPath);
+            testEnvironment.AppendPSModulePath(tmpDir.FullDirectoryPath);
+
+            var dscModule = new DscModuleV2();
+
+            var settings = new ValueSet()
+            {
+                { "secretCode", "4815162342" },
+            };
+
+            using PowerShell pwsh = PowerShell.Create(testEnvironment.Runspace);
+            var testResult = dscModule.InvokeSetResource(
+                pwsh,
+                settings,
+                TestModule.SimpleTestResourceName,
+                PowerShellHelpers.CreateModuleSpecification(
+                    TestModule.SimpleTestResourceModuleName));
         }
     }
 }

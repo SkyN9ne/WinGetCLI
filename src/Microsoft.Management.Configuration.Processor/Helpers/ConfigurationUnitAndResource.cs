@@ -29,7 +29,7 @@ namespace Microsoft.Management.Configuration.Processor.Helpers
             ConfigurationUnitInternal configurationUnitInternal,
             DscResourceInfoInternal dscResourceInfoInternal)
         {
-            if (configurationUnitInternal.Unit.UnitName != dscResourceInfoInternal.Name)
+            if (!configurationUnitInternal.Unit.Type.Equals(dscResourceInfoInternal.Name, StringComparison.OrdinalIgnoreCase))
             {
                 throw new ArgumentException();
             }
@@ -49,14 +49,6 @@ namespace Microsoft.Management.Configuration.Processor.Helpers
         public ConfigurationUnit Unit
         {
             get { return this.UnitInternal.Unit; }
-        }
-
-        /// <summary>
-        /// Gets the directives overlay.
-        /// </summary>
-        public IReadOnlyDictionary<string, object>? DirectivesOverlay
-        {
-            get { return this.UnitInternal.DirectivesOverlay; }
         }
 
         /// <summary>
@@ -81,20 +73,30 @@ namespace Microsoft.Management.Configuration.Processor.Helpers
         /// </summary>
         /// <param name="directiveName">Name of directive.</param>
         /// <returns>The value of the directive. Null if doesn't exist.</returns>
-        public string? GetDirective(string directiveName)
+        /// <typeparam name="TType">Directive type value.</typeparam>
+        public TType? GetDirective<TType>(string directiveName)
+            where TType : class
+        {
+            return this.UnitInternal.GetDirective<TType>(directiveName);
+        }
+
+        /// <summary>
+        /// Gets a directive bool value.
+        /// </summary>
+        /// <param name="directiveName">Name of directive.</param>
+        /// <returns>The value of the directive. False if not set.</returns>
+        public bool? GetDirective(string directiveName)
         {
             return this.UnitInternal.GetDirective(directiveName);
         }
 
         /// <summary>
-        /// TODO: Implement.
-        /// I am so sad because rs.SessionStateProxy.InvokeCommand.ExpandString doesn't work as I wanted.
-        /// PowerShell assumes all code passed to ExpandString is trusted and we cannot assume that.
+        /// Gets the settings of the unit.
         /// </summary>
         /// <returns>ValueSet with settings.</returns>
-        public ValueSet GetExpandedSettings()
+        public ValueSet GetSettings()
         {
-            return this.Unit.Settings;
+            return this.UnitInternal.GetExpandedSettings();
         }
     }
 }

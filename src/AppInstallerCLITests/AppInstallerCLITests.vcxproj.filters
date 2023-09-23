@@ -28,6 +28,12 @@
     <Filter Include="TestData\MultiFileManifestV1_4">
       <UniqueIdentifier>{52b26063-ccff-40ae-a420-243327dcca25}</UniqueIdentifier>
     </Filter>
+    <Filter Include="TestData\MultiFileManifestV1_5">
+      <UniqueIdentifier>{488e9b7a-d72e-470c-b73a-5abcb83ca2c6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TestData\MultiFileManifestV1_6">
+      <UniqueIdentifier>{82dd5390-16ce-4a4c-a61a-148013890cc4}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Source Files\CLI">
       <UniqueIdentifier>{b35e1a8b-1961-46d5-98e5-adc8e52c54a9}</UniqueIdentifier>
     </Filter>
@@ -227,9 +233,6 @@
     <ClCompile Include="Archive.cpp">
       <Filter>Source Files\Common</Filter>
     </ClCompile>
-    <ClCompile Include="Filesystem.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="FolderFileWatcher.cpp">
       <Filter>Source Files\Common</Filter>
     </ClCompile>
@@ -241,9 +244,6 @@
     </ClCompile>
     <ClCompile Include="PackageDependenciesValidationUtil.cpp">
       <Filter>Source Files\Repository</Filter>
-    </ClCompile>
-    <ClCompile Include="RestInterface_1_4.cpp">
-      <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="AdminSettings.cpp">
       <Filter>Source Files\Common</Filter>
@@ -292,6 +292,30 @@
     </ClCompile>
     <ClCompile Include="WindowsFeature.cpp">
       <Filter>Source Files\CLI</Filter>
+    </ClCompile>
+    <ClCompile Include="Filesystem.cpp">
+      <Filter>Source Files\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="RestInterface_1_4.cpp">
+      <Filter>Source Files\Repository</Filter>
+    </ClCompile>
+    <ClCompile Include="RestInterface_1_5.cpp">
+      <Filter>Source Files\Repository</Filter>
+    </ClCompile>
+    <ClCompile Include="IconExtraction.cpp">
+      <Filter>Source Files\Repository</Filter>
+    </ClCompile>
+    <ClCompile Include="PathVariable.cpp">
+      <Filter>Source Files\CLI</Filter>
+    </ClCompile>
+    <ClCompile Include="RestInterface_1_6.cpp">
+      <Filter>Source Files\Repository</Filter>
+    </ClCompile>
+    <ClCompile Include="DownloadFlow.cpp">
+      <Filter>Source Files\CLI</Filter>
+    </ClCompile>
+    <ClCompile Include="Errors.cpp">
+      <Filter>Source Files\Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -528,9 +552,6 @@
     <CopyFileToFolders Include="TestData\Manifest-Good-NoArpVersionDeclared.yaml">
       <Filter>TestData</Filter>
     </CopyFileToFolders>
-    <CopyFileToFolders Include="TestData\Manifest-Good-PackageFamilyNameOnExe-Ver1_2.yaml">
-      <Filter>TestData</Filter>
-    </CopyFileToFolders>
     <CopyFileToFolders Include="TestData\Manifest-Good-SingleArpVersionDeclared.yaml">
       <Filter>TestData</Filter>
     </CopyFileToFolders>
@@ -559,6 +580,9 @@
       <Filter>TestData</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="TestData\TestZip.zip">
+      <Filter>TestData</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\DownloadFlowTest_DownloadCommandProhibited.yaml">
       <Filter>TestData</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="TestData\InstallFlowTest_NoApplicableArchitecture.yaml">
@@ -723,6 +747,12 @@
     <CopyFileToFolders Include="TestData\ManifestV1_4-Singleton.yaml">
       <Filter>TestData</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\ManifestV1_5-Singleton.yaml">
+      <Filter>TestData</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\ManifestV1_6-Singleton.yaml">
+      <Filter>TestData</Filter>
+    </CopyFileToFolders>
     <CopyFileToFolders Include="TestData\MultiFileManifestV1\ManifestV1-MultiFile-DefaultLocale.yaml">
       <Filter>TestData\MultiFileManifestV1</Filter>
     </CopyFileToFolders>
@@ -771,6 +801,30 @@
     <CopyFileToFolders Include="TestData\MultiFileManifestV1_4\ManifestV1_4-MultiFile-Version.yaml">
       <Filter>TestData\MultiFileManifestV1_4</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\MultiFileManifestV1_5\ManifestV1_5-MultiFile-DefaultLocale.yaml">
+      <Filter>TestData\MultiFileManifestV1_5</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\MultiFileManifestV1_5\ManifestV1_5-MultiFile-Installer.yaml">
+      <Filter>TestData\MultiFileManifestV1_5</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\MultiFileManifestV1_5\ManifestV1_5-MultiFile-Locale.yaml">
+      <Filter>TestData\MultiFileManifestV1_5</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\MultiFileManifestV1_5\ManifestV1_5-MultiFile-Version.yaml">
+      <Filter>TestData\MultiFileManifestV1_5</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\MultiFileManifestV1_6\ManifestV1_6-MultiFile-DefaultLocale.yaml">
+      <Filter>TestData\MultiFileManifestV1_6</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\MultiFileManifestV1_6\ManifestV1_6-MultiFile-Installer.yaml">
+      <Filter>TestData\MultiFileManifestV1_6</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\MultiFileManifestV1_6\ManifestV1_6-MultiFile-Locale.yaml">
+      <Filter>TestData\MultiFileManifestV1_6</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\MultiFileManifestV1_6\ManifestV1_6-MultiFile-Version.yaml">
+      <Filter>TestData\MultiFileManifestV1_6</Filter>
+    </CopyFileToFolders>
     <CopyFileToFolders Include="TestData\Installer_Exe_Dependencies.yaml">
       <Filter>TestData</Filter>
     </CopyFileToFolders>
@@ -810,6 +864,9 @@
     <CopyFileToFolders Include="TestData\Installer-Good.msixbundle">
       <Filter>TestData</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\Installer-Good-WithStub.msixbundle">
+      <Filter>TestData</Filter>
+    </CopyFileToFolders>
     <CopyFileToFolders Include="TestData\Installer-Signed-Good.msix">
       <Filter>TestData</Filter>
     </CopyFileToFolders>
@@ -825,6 +882,9 @@
     <CopyFileToFolders Include="TestData\Manifest-Good-MsixBundleInstaller.yaml">
       <Filter>TestData</Filter>
     </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\Manifest-Good-MsixBundleInstaller-WithStub.yaml">
+      <Filter>TestData</Filter>
+    </CopyFileToFolders>
     <CopyFileToFolders Include="TestData\Manifest-Bad-InconsistentMsixBundleInstallerFields.yaml">
       <Filter>TestData</Filter>
     </CopyFileToFolders>
@@ -835,6 +895,12 @@
       <Filter>TestData</Filter>
     </CopyFileToFolders>
     <CopyFileToFolders Include="TestData\Node-Types.yaml">
+      <Filter>TestData</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\notepad.exe">
+      <Filter>TestData</Filter>
+    </CopyFileToFolders>
+    <CopyFileToFolders Include="TestData\notepad.ico">
       <Filter>TestData</Filter>
     </CopyFileToFolders>
   </ItemGroup>

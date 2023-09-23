@@ -5,6 +5,7 @@
 #include "ExecutionReporter.h"
 #include <winget/ExperimentalFeature.h>
 #include <winget/RepositorySearch.h>
+#include <winget/RepositorySource.h>
 
 #include <string>
 #include <string_view>
@@ -40,6 +41,7 @@ namespace AppInstaller::CLI::Workflow
         Show,
         Uninstall,
         Upgrade,
+        Download,
     };
 
     // A task in the workflow.

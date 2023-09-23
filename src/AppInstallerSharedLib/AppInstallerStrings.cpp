@@ -579,6 +579,23 @@ namespace AppInstaller::Utility
         return result;
     }
 
+    std::vector<std::uint8_t> ReadEntireStreamAsByteArray(std::istream& stream)
+    {
+        std::streampos currentPos = stream.tellg();
+        stream.seekg(0, std::ios_base::end);
+
+        auto offset = stream.tellg() - currentPos;
+        stream.seekg(currentPos);
+
+        // Don't allow use of this API for reading very large streams.
+        THROW_HR_IF(E_OUTOFMEMORY, offset > static_cast<std::streamoff>(std::numeric_limits<uint32_t>::max()));
+        std::vector<std::uint8_t> result;
+        result.resize(static_cast<size_t>(offset));
+        stream.read(reinterpret_cast<char*>(result.data()), offset);
+
+        return result;
+    }
+
     std::wstring ExpandEnvironmentVariables(const std::wstring& input)
     {
         if (input.empty())
@@ -703,6 +720,69 @@ namespace AppInstaller::Utility
         return result;
     }
 
+    std::vector<std::string> SplitIntoLines(std::string_view input, size_t maximum)
+    {
+        std::size_t currentOffset = 0;
+        std::vector<std::string> result;
+
+        while (currentOffset < input.size() && (!maximum || result.size() < maximum))
+        {
+            std::size_t nextOffset = input.find_first_of("\r\n", currentOffset);
+            if (nextOffset == std::string_view::npos)
+            {
+                nextOffset = input.size();
+            }
+
+            if (nextOffset - currentOffset > 1)
+            {
+                result.emplace_back(input.substr(currentOffset, nextOffset - currentOffset));
+            }
+
+            currentOffset = nextOffset + 1;
+        }
+
+        return result;
+    }
+
+    bool LimitOutputLines(std::vector<std::string>& lines, size_t lineWidth, size_t maximum)
+    {
+        size_t totalLines = 0;
+        size_t currentLine = 0;
+        bool result = false;
+
+        for (; currentLine < lines.size() && totalLines < maximum; ++currentLine)
+        {
+            size_t currentLineWidth = UTF8ColumnWidth(lines[currentLine]);
+            // If current line is empty, the cost is 1 line (0 + 1).
+            // If not, round up to the next line count (by rounding down through integer division after subtracting 1 + 1).
+            size_t currentLineActualLineCount = (currentLineWidth ? (currentLineWidth - 1) / lineWidth : 0) + 1;
+
+            // The current line may be too big to be the last line.
+            size_t availableLines = maximum - totalLines;
+            if (currentLineActualLineCount > availableLines)
+            {
+                size_t actualWidth = 0;
+                std::string trimmedLine = UTF8TrimRightToColumnWidth(lines[currentLine], (availableLines * lineWidth) - 1, actualWidth);
+                trimmedLine += "\xE2\x80\xA6"; // UTF8 encoding of ellipsis (�) character
+                lines[currentLine] = trimmedLine;
+
+                currentLineActualLineCount = availableLines;
+                result = true;
+            }
+
+            totalLines += currentLineActualLineCount;
+        }
+
+        // Drop any unprocessed lines
+        if (currentLine != lines.size())
+        {
+            lines.resize(currentLine);
+            result = true;
+        }
+
+        return result;
+    }
+
     std::string ConvertToHexString(const std::vector<uint8_t>& buffer, size_t byteCount)
     {
         if (byteCount && buffer.size() != byteCount)
@@ -757,5 +837,27 @@ namespace AppInstaller::Utility
             ssJoin << separator << vector[i];
         }
         return LocIndString{ ssJoin.str() };
+    }
+
+    std::vector<std::string> Split(const std::string& input, char separator)
+    {
+        std::vector<std::string> result;
+        size_t startIndex = 0;
+        size_t endIndex = 0;
+
+        while ((endIndex = input.find(separator, startIndex)) != std::string::npos)
+        {
+            std::string substring = input.substr(startIndex, endIndex - startIndex);
+            result.push_back(substring);
+            startIndex = endIndex + 1;
+        }
+
+        result.push_back(input.substr(startIndex));
+        return result;
+    }
+
+    std::string_view ConvertBoolToString(bool value)
+    {
+        return value ? "true"sv : "false"sv;
     }
 }

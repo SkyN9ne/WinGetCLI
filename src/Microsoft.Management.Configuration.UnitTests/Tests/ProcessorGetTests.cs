@@ -13,11 +13,13 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
     using Microsoft.VisualBasic;
     using Xunit;
     using Xunit.Abstractions;
+    using Xunit.Sdk;
 
     /// <summary>
     /// Unit tests for getting details on processors.
     /// </summary>
     [Collection("UnitTestCollection")]
+    [OutOfProc]
     public class ProcessorGetTests : ConfigurationProcessorTestBase
     {
         /// <summary>
@@ -36,15 +38,21 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void GetUnitDetailsError()
         {
-            ConfigurationUnit configurationUnitThrows = new ConfigurationUnit();
+            ConfigurationUnit configurationUnitThrows = this.ConfigurationUnit();
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             factory.NullProcessor = new TestConfigurationSetProcessor(null);
-            factory.NullProcessor.Exceptions.Add(configurationUnitThrows, new FileNotFoundException());
+            var thrownException = new FileNotFoundException();
+            factory.NullProcessor.Exceptions.Add(configurationUnitThrows, thrownException);
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
 
-            Assert.Throws<FileNotFoundException>(() => processor.GetUnitDetails(configurationUnitThrows, ConfigurationUnitDetailLevel.Local));
+            GetConfigurationUnitDetailsResult result = processor.GetUnitDetails(configurationUnitThrows, ConfigurationUnitDetailFlags.Local);
+
+            Assert.Null(result.Details);
+            Assert.Equal(configurationUnitThrows, result.Unit);
+            Assert.Equal(thrownException.HResult, result.ResultInformation.ResultCode.HResult);
+            Assert.Equal(ConfigurationUnitResultSource.Internal, result.ResultInformation.ResultSource);
         }
 
         /// <summary>
@@ -53,13 +61,13 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void GetUnitDetailsSuccess()
         {
-            ConfigurationUnit configurationUnit = new ConfigurationUnit();
+            ConfigurationUnit configurationUnit = this.ConfigurationUnit();
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
 
             Assert.Null(configurationUnit.Details);
-            processor.GetUnitDetails(configurationUnit, ConfigurationUnitDetailLevel.Local);
+            processor.GetUnitDetails(configurationUnit, ConfigurationUnitDetailFlags.Local);
             Assert.NotNull(configurationUnit.Details);
         }
 
@@ -69,10 +77,10 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void GetSetDetailsError()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnitWorks = new ConfigurationUnit();
-            ConfigurationUnit configurationUnitThrows = new ConfigurationUnit();
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnitWorks, configurationUnitThrows };
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnitWorks = this.ConfigurationUnit();
+            ConfigurationUnit configurationUnitThrows = this.ConfigurationUnit();
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnitWorks, configurationUnitThrows };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             TestConfigurationSetProcessor setProcessor = factory.CreateTestProcessor(configurationSet);
@@ -81,7 +89,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
 
-            GetConfigurationSetDetailsResult result = processor.GetSetDetails(configurationSet, ConfigurationUnitDetailLevel.Local);
+            GetConfigurationSetDetailsResult result = processor.GetSetDetails(configurationSet, ConfigurationUnitDetailFlags.Local);
             var unitResults = result.UnitResults;
             Assert.Equal(2, unitResults.Count);
 
@@ -101,16 +109,16 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void GetSetDetailsSuccess()
         {
-            ConfigurationSet configurationSet = new ConfigurationSet();
-            ConfigurationUnit configurationUnit1 = new ConfigurationUnit();
-            ConfigurationUnit configurationUnit2 = new ConfigurationUnit();
-            configurationSet.ConfigurationUnits = new ConfigurationUnit[] { configurationUnit1, configurationUnit2 };
+            ConfigurationSet configurationSet = this.ConfigurationSet();
+            ConfigurationUnit configurationUnit1 = this.ConfigurationUnit();
+            ConfigurationUnit configurationUnit2 = this.ConfigurationUnit();
+            configurationSet.Units = new ConfigurationUnit[] { configurationUnit1, configurationUnit2 };
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
 
-            processor.GetSetDetails(configurationSet, ConfigurationUnitDetailLevel.Local);
+            processor.GetSetDetails(configurationSet, ConfigurationUnitDetailFlags.Local);
             Assert.NotNull(configurationUnit1.Details);
             Assert.NotNull(configurationUnit2.Details);
         }
@@ -121,7 +129,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void GetSettings_ProcessorSettingsError()
         {
-            ConfigurationUnit configurationUnit = new ConfigurationUnit();
+            ConfigurationUnit configurationUnit = this.ConfigurationUnit();
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             factory.NullProcessor = new TestConfigurationSetProcessor(null);
@@ -145,14 +153,14 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void GetSettings_ProcessorSettingsFailedResult()
         {
-            ConfigurationUnit configurationUnit = new ConfigurationUnit();
+            ConfigurationUnit configurationUnit = this.ConfigurationUnit();
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             factory.NullProcessor = new TestConfigurationSetProcessor(null);
             TestConfigurationUnitProcessor unitProcessor = factory.NullProcessor.CreateTestProcessor(configurationUnit);
-            GetSettingsResult getSettingsResult = new GetSettingsResult();
-            getSettingsResult.ResultInformation.ResultCode = new InvalidDataException();
-            getSettingsResult.ResultInformation.Description = "We fail because we must";
+            GetSettingsResultInstance getSettingsResult = new GetSettingsResultInstance(configurationUnit);
+            getSettingsResult.InternalResult.ResultCode = new InvalidDataException();
+            getSettingsResult.InternalResult.Description = "We fail because we must";
             unitProcessor.GetSettingsDelegate = () => getSettingsResult;
 
             ConfigurationProcessor processor = this.CreateConfigurationProcessorWithDiagnostics(factory);
@@ -172,12 +180,12 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void GetSettings_ProcessorSettingsSuccess()
         {
-            ConfigurationUnit configurationUnit = new ConfigurationUnit();
+            ConfigurationUnit configurationUnit = this.ConfigurationUnit();
 
             TestConfigurationProcessorFactory factory = new TestConfigurationProcessorFactory();
             factory.NullProcessor = new TestConfigurationSetProcessor(null);
             TestConfigurationUnitProcessor unitProcessor = factory.NullProcessor.CreateTestProcessor(configurationUnit);
-            GetSettingsResult getSettingsResult = new GetSettingsResult();
+            GetSettingsResultInstance getSettingsResult = new GetSettingsResultInstance(configurationUnit);
             getSettingsResult.Settings = new Windows.Foundation.Collections.ValueSet();
             getSettingsResult.Settings.Add("key", "value");
             unitProcessor.GetSettingsDelegate = () => getSettingsResult;

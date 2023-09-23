@@ -77,28 +77,39 @@ namespace AppInstaller::Repository::Microsoft
             AICLI_LOG(Repo, Info, << "Reading MSI UpgradeCodes");
             std::map<std::string, std::string> upgradeCodes;
 
-            // There is no UpgradeCodes key on the x86 view of the registry
-            Registry::Key upgradeCodesKey = Registry::Key::OpenIfExists(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\UpgradeCodes", 0, KEY_READ | KEY_WOW64_64KEY);
-
-            if (upgradeCodesKey)
+            try
             {
-                for (const auto& upgradeCodeKeyRef : upgradeCodesKey)
+                // There is no UpgradeCodes key on the x86 view of the registry
+                Registry::Key upgradeCodesKey = Registry::Key::OpenIfExists(HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Installer\\UpgradeCodes", 0, KEY_READ | KEY_WOW64_64KEY);
+
+                if (upgradeCodesKey)
                 {
-                    auto upgradeCode = TryUnpackUpgradeCodeGuid(upgradeCodeKeyRef.Name());
-                    if (upgradeCode)
+                    for (const auto& upgradeCodeKeyRef : upgradeCodesKey)
                     {
-                        auto upgradeCodeKey = upgradeCodeKeyRef.Open();
-                        for (const auto& productCodeValue : upgradeCodeKey.Values())
+                        std::string keyName;
+
+                        try
                         {
-                            auto productCode = TryUnpackUpgradeCodeGuid(productCodeValue.Name());
-                            if (productCode)
+                            keyName = upgradeCodeKeyRef.Name();
+                            auto upgradeCode = TryUnpackUpgradeCodeGuid(keyName);
+                            if (upgradeCode)
                             {
-                                upgradeCodes[*productCode] = *upgradeCode;
+                                auto upgradeCodeKey = upgradeCodeKeyRef.Open();
+                                for (const auto& productCodeValue : upgradeCodeKey.Values())
+                                {
+                                    auto productCode = TryUnpackUpgradeCodeGuid(productCodeValue.Name());
+                                    if (productCode)
+                                    {
+                                        upgradeCodes[*productCode] = *upgradeCode;
+                                    }
+                                }
                             }
                         }
+                        CATCH_LOG_MSG("Failed to read upgrade code: %hs", keyName.c_str());
                     }
                 }
             }
+            CATCH_LOG_MSG("Failed to read upgrade codes.");
 
             return upgradeCodes;
         }
@@ -188,6 +199,44 @@ namespace AppInstaller::Repository::Microsoft
         {
             return {};
         }
+    }
+
+    Registry::Key ARPHelper::FindARPEntry(const std::string& productCode, Manifest::ScopeEnum scope) const
+    {
+        if (productCode.empty())
+        {
+            return {};
+        }
+
+        std::vector<Manifest::ScopeEnum> scopesToSearch;
+        if (scope == Manifest::ScopeEnum::Unknown)
+        {
+            scopesToSearch = { Manifest::ScopeEnum::User, Manifest::ScopeEnum::Machine };
+        }
+        else
+        {
+            scopesToSearch = { scope };
+        }
+
+        for (auto scopeToSearch : scopesToSearch)
+        {
+            for (auto architecture : Utility::GetApplicableArchitectures())
+            {
+                Registry::Key arpRootKey = GetARPKey(scopeToSearch, architecture);
+                if (arpRootKey)
+                {
+                    for (const auto& entry : arpRootKey)
+                    {
+                        if (Utility::CaseInsensitiveEquals(productCode, entry.Name()))
+                        {
+                            return entry.Open();
+                        }
+                    }
+                }
+            }
+        }
+
+        return {};
     }
 
     bool ARPHelper::GetBoolValue(const Registry::Key& arpKey, const std::wstring& name)

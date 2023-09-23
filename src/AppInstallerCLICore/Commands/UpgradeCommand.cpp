@@ -57,8 +57,10 @@ namespace AppInstaller::CLI
             Argument::ForType(Args::Type::InstallLocation), // -l
             Argument{ Execution::Args::Type::InstallScope, Resource::String::InstalledScopeArgumentDescription, ArgumentType::Standard, Argument::Visibility::Help },
             Argument::ForType(Args::Type::InstallArchitecture), // -a
+            Argument::ForType(Args::Type::InstallerType),
             Argument::ForType(Args::Type::Locale),
             Argument::ForType(Args::Type::HashOverride),
+            Argument::ForType(Args::Type::SkipDependencies),
             Argument::ForType(Args::Type::IgnoreLocalArchiveMalwareScan),
             Argument::ForType(Args::Type::AcceptPackageAgreements),
             Argument::ForType(Args::Type::AcceptSourceAgreements),
@@ -201,8 +203,8 @@ namespace AppInstaller::CLI
                     Workflow::GetMultiSearchRequests <<
                     Workflow::SearchSubContextsForSingle(OperationType::Upgrade) <<
                     Workflow::ReportExecutionStage(Workflow::ExecutionStage::Execution) <<
-                    Workflow::InstallMultiplePackages(
-                        Resource::String::InstallAndUpgradeCommandsReportDependencies,
+                    Workflow::ProcessMultiplePackages(
+                        Resource::String::PackageRequiresDependencies,
                         APPINSTALLER_CLI_ERROR_MULTIPLE_INSTALL_FAILED);
             }
         }

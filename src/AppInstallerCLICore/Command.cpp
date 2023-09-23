@@ -4,6 +4,8 @@
 #include "Command.h"
 #include "Resources.h"
 #include <winget/UserSettings.h>
+#include <AppInstallerRuntime.h>
+#include <winget/Locale.h>
 
 using namespace std::string_view_literals;
 using namespace AppInstaller::Utility::literals;
@@ -718,6 +720,15 @@ namespace AppInstaller::CLI
             }
         }
 
+        if (execArgs.Contains(Execution::Args::Type::InstallerType))
+        {
+            Manifest::InstallerTypeEnum selectedInstallerType = Manifest::ConvertToInstallerTypeEnum(std::string(execArgs.GetArg(Execution::Args::Type::InstallerType)));
+            if (selectedInstallerType == Manifest::InstallerTypeEnum::Unknown)
+            {
+                throw CommandException(Resource::String::InvalidArgumentValueErrorWithoutValidValues(Argument::ForType(Execution::Args::Type::InstallerType).Name()));
+            }
+        }
+
         Argument::ValidateExclusiveArguments(execArgs);
 
         ValidateArgumentsInternal(execArgs);
@@ -840,6 +851,13 @@ namespace AppInstaller::CLI
         {
             AICLI_LOG(CLI, Error, << "WinGet is disabled by group policy");
             throw GroupPolicyException(Settings::TogglePolicy::Policy::WinGet);
+        }
+
+        // Block CLI execution if WinGetCommandLineInterfaces is disabled by Policy
+        if (!Settings::GroupPolicies().IsEnabled(Settings::TogglePolicy::Policy::WinGetCommandLineInterfaces))
+        {
+            AICLI_LOG(CLI, Error, << "WinGet is disabled by group policy");
+            throw GroupPolicyException(Settings::TogglePolicy::Policy::WinGetCommandLineInterfaces);
         }
 
         AICLI_LOG(CLI, Info, << "Executing command: " << Name());

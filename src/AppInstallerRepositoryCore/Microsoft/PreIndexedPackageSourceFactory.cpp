@@ -106,15 +106,20 @@ namespace AppInstaller::Repository::Microsoft
         }
 
         // Creates a name for the cross process reader-writer lock given the details.
-        std::string CreateNameForCPRWL(const SourceDetails& details)
+        std::string CreateNameForCPL(const SourceDetails& details)
         {
             // The only relevant data is the package family name
-            return "PreIndexedSourceCPRWL_"s + GetPackageFamilyNameFromDetails(details);
+            return "PreIndexedSourceCPL_"s + GetPackageFamilyNameFromDetails(details);
         }
 
         // The base class for a package that comes from a preindexed packaged source.
         struct PreIndexedFactoryBase : public ISourceFactory
         {
+            std::string_view TypeName() const override final
+            {
+                return PreIndexedPackageSourceFactory::Type();
+            }
+
             std::shared_ptr<ISourceReference> Create(const SourceDetails& details) override final
             {
                 // With more than one source implementation, we will probably need to probe first
@@ -189,17 +194,21 @@ namespace AppInstaller::Repository::Microsoft
             virtual bool RemoveInternal(const SourceDetails& details, IProgressCallback&) = 0;
 
         private:
-            Synchronization::CrossProcessReaderWriteLock LockExclusive(const SourceDetails& details, IProgressCallback& progress, bool isBackground = false)
+            Synchronization::CrossProcessLock LockExclusive(const SourceDetails& details, IProgressCallback& progress, bool isBackground = false)
             {
+                Synchronization::CrossProcessLock result(CreateNameForCPL(details));
+
                 if (isBackground)
                 {
                     // If this is a background update, don't wait on the lock.
-                    return Synchronization::CrossProcessReaderWriteLock::LockExclusive(CreateNameForCPRWL(details), 0ms);
+                    result.TryAcquireNoWait();
                 }
                 else
                 {
-                    return Synchronization::CrossProcessReaderWriteLock::LockExclusive(CreateNameForCPRWL(details), progress);
+                    result.Acquire(progress);
                 }
+
+                return result;
             }
 
             bool UpdateBase(const SourceDetails& details, bool isBackground, IProgressCallback& progress)
@@ -215,7 +224,7 @@ namespace AppInstaller::Repository::Microsoft
                 THROW_HR_IF(APPINSTALLER_CLI_ERROR_SOURCE_DATA_INTEGRITY_FAILURE,
                     GetPackageFamilyNameFromDetails(details) != Msix::GetPackageFamilyNameFromFullName(packageInfo.MsixInfo().GetPackageFullName()));
 
-                if (progress.IsCancelled())
+                if (progress.IsCancelledBy(CancelReason::Any))
                 {
                     AICLI_LOG(Repo, Info, << "Cancelling update upon request");
                     return false;
@@ -254,8 +263,8 @@ namespace AppInstaller::Repository::Microsoft
 
             std::shared_ptr<ISource> Open(IProgressCallback& progress) override
             {
-                auto lock = Synchronization::CrossProcessReaderWriteLock::LockShared(CreateNameForCPRWL(m_details), progress);
-                if (!lock)
+                Synchronization::CrossProcessLock lock(CreateNameForCPL(m_details));
+                if (!lock.Acquire(progress))
                 {
                     return {};
                 }
@@ -281,7 +290,7 @@ namespace AppInstaller::Repository::Microsoft
                 // We didn't use to store the source identifier, so we compute it here in case it's
                 // missing from the details.
                 m_details.Identifier = GetPackageFamilyNameFromDetails(m_details);
-                return std::make_shared<SQLiteIndexSource>(m_details, std::move(index), std::move(lock), false, true);
+                return std::make_shared<SQLiteIndexSource>(m_details, std::move(index), false, true);
             }
 
         private:
@@ -310,7 +319,7 @@ namespace AppInstaller::Repository::Microsoft
                     }
                 }
 
-                if (progress.IsCancelled())
+                if (progress.IsCancelledBy(CancelReason::Any))
                 {
                     AICLI_LOG(Repo, Info, << "Cancelling update upon request");
                     return false;
@@ -416,8 +425,8 @@ namespace AppInstaller::Repository::Microsoft
 
             std::shared_ptr<ISource> Open(IProgressCallback& progress) override
             {
-                auto lock = Synchronization::CrossProcessReaderWriteLock::LockShared(CreateNameForCPRWL(m_details), progress);
-                if (!lock)
+                Synchronization::CrossProcessLock lock(CreateNameForCPL(m_details));
+                if (!lock.Acquire(progress))
                 {
                     return {};
                 }
@@ -445,7 +454,7 @@ namespace AppInstaller::Repository::Microsoft
                 Msix::MsixInfo packageInfo(packageLocation);
                 packageInfo.WriteToFileHandle(s_PreIndexedPackageSourceFactory_IndexFilePath, tempIndexFile.GetFileHandle(), progress);
 
-                if (progress.IsCancelled())
+                if (progress.IsCancelledBy(CancelReason::Any))
                 {
                     AICLI_LOG(Repo, Info, << "Cancelling open upon request");
                     return {};
@@ -456,7 +465,7 @@ namespace AppInstaller::Repository::Microsoft
                 // We didn't use to store the source identifier, so we compute it here in case it's
                 // missing from the details.
                 m_details.Identifier = GetPackageFamilyNameFromDetails(m_details);
-                return std::make_shared<SQLiteIndexSource>(m_details, std::move(index), std::move(lock), false, true);
+                return std::make_shared<SQLiteIndexSource>(m_details, std::move(index), false, true);
             }
 
         private:
@@ -503,7 +512,7 @@ namespace AppInstaller::Repository::Microsoft
                 }
 
                 bool updateSuccess = false;
-                if (progress.IsCancelled())
+                if (progress.IsCancelledBy(CancelReason::Any))
                 {
                     AICLI_LOG(Repo, Info, << "Cancelling update upon request");
                 }

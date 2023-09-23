@@ -27,17 +27,8 @@
     <ClCompile Include="ConfigurationUnit.cpp">
       <Filter>API Source</Filter>
     </ClCompile>
-    <ClCompile Include="ConfigurationUnitResultInformation.cpp">
-      <Filter>API Source</Filter>
-    </ClCompile>
-    <ClCompile Include="DiagnosticInformation.cpp">
-      <Filter>API Source</Filter>
-    </ClCompile>
     <ClCompile Include="GetConfigurationUnitSettingsResult.cpp">
       <Filter>API Source</Filter>
-    </ClCompile>
-    <ClCompile Include="MutableFlag.cpp">
-      <Filter>Internals</Filter>
     </ClCompile>
     <ClCompile Include="TestConfigurationSetResult.cpp">
       <Filter>API Source</Filter>
@@ -63,20 +54,29 @@
     <ClCompile Include="ConfigurationSetApplyProcessor.cpp">
       <Filter>Internals</Filter>
     </ClCompile>
-    <ClCompile Include="ApplySettingsResult.cpp">
-      <Filter>API Source</Filter>
-    </ClCompile>
-    <ClCompile Include="GetSettingsResult.cpp">
-      <Filter>API Source</Filter>
-    </ClCompile>
-    <ClCompile Include="TestSettingsResult.cpp">
-      <Filter>API Source</Filter>
-    </ClCompile>
     <ClCompile Include="GetConfigurationUnitDetailsResult.cpp">
       <Filter>API Source</Filter>
     </ClCompile>
     <ClCompile Include="GetConfigurationSetDetailsResult.cpp">
       <Filter>API Source</Filter>
+    </ClCompile>
+    <ClCompile Include="Telemetry\TraceLogging.cpp">
+      <Filter>Telemetry</Filter>
+    </ClCompile>
+    <ClCompile Include="Telemetry\Telemetry.cpp">
+      <Filter>Telemetry</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigurationSetParser_0_2.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigurationUnitResultInformation.cpp">
+      <Filter>Internals</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigurationStaticFunctions.cpp">
+      <Filter>API Source</Filter>
+    </ClCompile>
+    <ClCompile Include="DiagnosticInformationInstance.cpp">
+      <Filter>Internals</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -105,17 +105,8 @@
     <ClInclude Include="ConfigurationUnit.h">
       <Filter>API Headers</Filter>
     </ClInclude>
-    <ClInclude Include="ConfigurationUnitResultInformation.h">
-      <Filter>API Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="DiagnosticInformation.h">
-      <Filter>API Headers</Filter>
-    </ClInclude>
     <ClInclude Include="GetConfigurationUnitSettingsResult.h">
       <Filter>API Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="MutableFlag.h">
-      <Filter>Internals</Filter>
     </ClInclude>
     <ClInclude Include="TestConfigurationSetResult.h">
       <Filter>API Headers</Filter>
@@ -147,20 +138,29 @@
     <ClInclude Include="ExceptionResultHelpers.h">
       <Filter>Internals</Filter>
     </ClInclude>
-    <ClInclude Include="ApplySettingsResult.h">
-      <Filter>API Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="GetSettingsResult.h">
-      <Filter>API Headers</Filter>
-    </ClInclude>
-    <ClInclude Include="TestSettingsResult.h">
-      <Filter>API Headers</Filter>
-    </ClInclude>
     <ClInclude Include="GetConfigurationUnitDetailsResult.h">
       <Filter>API Headers</Filter>
     </ClInclude>
     <ClInclude Include="GetConfigurationSetDetailsResult.h">
       <Filter>API Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="Telemetry\TraceLogging.h">
+      <Filter>Telemetry</Filter>
+    </ClInclude>
+    <ClInclude Include="Telemetry\Telemetry.h">
+      <Filter>Telemetry</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfigurationSetParser_0_2.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfigurationUnitResultInformation.h">
+      <Filter>Internals</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfigurationStaticFunctions.h">
+      <Filter>API Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="DiagnosticInformationInstance.h">
+      <Filter>Internals</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -183,6 +183,9 @@
     </Filter>
     <Filter Include="Parser">
       <UniqueIdentifier>{b31f8336-b4d8-4c05-b08d-6b82c550a30b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Telemetry">
+      <UniqueIdentifier>{5a02f1a5-14f3-4a28-8bed-212f3e6b1a00}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

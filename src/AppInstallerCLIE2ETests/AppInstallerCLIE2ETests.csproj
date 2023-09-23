@@ -33,6 +33,9 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="6.0.3" />
+    <PackageReference Include="Microsoft.Windows.Compatibility" Version="6.0.6" />
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="6.0.1" />
   </ItemGroup>
 
   <!-- CsWinRT properties -->
@@ -44,6 +47,23 @@
     <Content Include="TestData\**">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="testdata\configuration\DependencyCycle.yml" />
+    <None Remove="testdata\configuration\DuplicateIdentifiers.yml" />
+    <None Remove="testdata\configuration\Empty.yml" />
+    <None Remove="testdata\configuration\MissingDependency.yml" />
+    <None Remove="testdata\configuration\ModuleMismatch.yml" />
+    <None Remove="testdata\configuration\modules\NoVersion.yml" />
+    <None Remove="testdata\configuration\NoResourceName.yml" />
+    <None Remove="testdata\configuration\NotConfig.yml" />
+    <None Remove="TestData\Configuration\PSGallery_NoSettings.yml" />
+    <None Remove="testdata\configuration\ResourceNotFound.yml" />
+    <None Remove="testdata\configuration\ResourcesNotASequence.yml" />
+    <None Remove="testdata\configuration\UnitNotAMap.yml" />
+    <None Remove="testdata\configuration\UnknownVersion.yml" />
+    <None Remove="TestData\localsource.json" />
   </ItemGroup>
 
   <ItemGroup>
@@ -62,6 +82,7 @@
     <ProjectReference Include="..\WindowsPackageManager\WindowsPackageManager.vcxproj">
       <ReferenceOutputAssembly>False</ReferenceOutputAssembly>
     </ProjectReference>
+    <ProjectReference Include="..\WinGetSourceCreator\WinGetSourceCreator.csproj" />
     <ProjectReference Include="..\WinGetUtil\WinGetUtil.vcxproj">
       <ReferenceOutputAssembly>False</ReferenceOutputAssembly>
     </ProjectReference>

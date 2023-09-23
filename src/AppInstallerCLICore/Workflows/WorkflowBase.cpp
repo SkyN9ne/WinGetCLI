@@ -9,6 +9,7 @@
 #include <winget/ExperimentalFeature.h>
 #include <winget/ManifestYamlParser.h>
 #include <winget/Pin.h>
+#include <winget/Runtime.h>
 
 using namespace std::string_literals;
 using namespace AppInstaller::Utility::literals;
@@ -727,10 +728,16 @@ namespace AppInstaller::CLI::Workflow
 
         std::vector<InstalledPackagesTableLine> lines;
         std::vector<InstalledPackagesTableLine> linesForExplicitUpgrade;
+        std::vector<InstalledPackagesTableLine> linesForPins;
 
         int availableUpgradesCount = 0;
+
+        // We will show a line with a summary for skipped and pinned packages at the end.
+        // The strings suggest using a --include-unknown/pinned argument, so we should
+        // ensure that the count is 0 when using the arguments.
         int packagesWithUnknownVersionSkipped = 0;
         int packagesWithUserPinsSkipped = 0;
+
         auto &source = context.Get<Execution::Data::Source>();
         bool shouldShowSource = source.IsComposite() && source.GetAvailableSources().size() > 1;
 
@@ -754,6 +761,7 @@ namespace AppInstaller::CLI::Workflow
             {
                 auto latestVersion = match.Package->GetLatestAvailableVersion(pinBehavior);
                 bool updateAvailable = match.Package->IsUpdateAvailable(pinBehavior);
+                bool updateIsPinned = false;
 
                 if (m_onlyShowUpgrades && !context.Args.Contains(Execution::Args::Type::IncludeUnknown) && Utility::Version(installedVersion->GetProperty(PackageVersionProperty::Version)).IsUnknown() && updateAvailable)
                 {
@@ -762,13 +770,26 @@ namespace AppInstaller::CLI::Workflow
                     continue;
                 }
 
-                if (m_onlyShowUpgrades && !updateAvailable && ExperimentalFeature::IsEnabled(ExperimentalFeature::Feature::Pinning))
+                if (m_onlyShowUpgrades && !updateAvailable)
                 {
                     bool updateAvailableWithoutPins = match.Package->IsUpdateAvailable(PinBehavior::IgnorePins);
                     if (updateAvailableWithoutPins)
                     {
-                        ++packagesWithUserPinsSkipped;
-                        continue;
+                        // When given the --include-pinned argument, report blocking and gating pins in a separate table.
+                        // Otherwise, simply show a count of them
+                        if (context.Args.Contains(Execution::Args::Type::IncludePinned))
+                        {
+                            updateIsPinned = true;
+
+                            // Override these so we generate the table line below.
+                            latestVersion = match.Package->GetLatestAvailableVersion(PinBehavior::IgnorePins);
+                            updateAvailable = true;
+                        }
+                        else
+                        {
+                            ++packagesWithUserPinsSkipped;
+                            continue;
+                        }
                     }
                 }
 
@@ -801,7 +822,11 @@ namespace AppInstaller::CLI::Workflow
                     );
 
                     auto pinnedState = ConvertToPinTypeEnum(installedVersion->GetMetadata()[PackageVersionMetadata::PinnedState]);
-                    if (m_onlyShowUpgrades && pinnedState == PinType::PinnedByManifest)
+                    if (updateIsPinned)
+                    {
+                        linesForPins.push_back(std::move(line));
+                    }
+                    else if (m_onlyShowUpgrades && pinnedState == PinType::PinnedByManifest)
                     {
                         linesForExplicitUpgrade.push_back(std::move(line));
                     }
@@ -836,6 +861,12 @@ namespace AppInstaller::CLI::Workflow
         {
             context.Reporter.Info() << std::endl << Resource::String::UpgradeAvailableForPinned << std::endl;
             OutputInstalledPackagesTable(context, linesForExplicitUpgrade);
+        }
+
+        if (!linesForPins.empty())
+        {
+            context.Reporter.Info() << std::endl << Resource::String::UpgradeBlockedByPinCount(linesForPins.size()) << std::endl;
+            OutputInstalledPackagesTable(context, linesForPins);
         }
 
         if (m_onlyShowUpgrades)
@@ -878,6 +909,7 @@ namespace AppInstaller::CLI::Workflow
                 case OperationType::Install:
                 case OperationType::Search:
                 case OperationType::Show:
+                case OperationType::Download:
                 default:
                     context.Reporter.Info() << Resource::String::NoPackageFound << std::endl;
                     break;
@@ -928,7 +960,7 @@ namespace AppInstaller::CLI::Workflow
         std::shared_ptr<IPackage> package = context.Get<Execution::Data::Package>();
         std::shared_ptr<IPackageVersion> requestedVersion;
 
-        if (m_considerPins && ExperimentalFeature::IsEnabled(ExperimentalFeature::Feature::Pinning))
+        if (m_considerPins)
         {
             bool isPinned = false;
 
@@ -1111,7 +1143,6 @@ namespace AppInstaller::CLI::Workflow
         {
             installationMetadata = context.Get<Execution::Data::InstalledPackageVersion>()->GetMetadata();
         }
-
 
         ManifestComparator manifestComparator(context, installationMetadata);
         auto [installer, inapplicabilities] = manifestComparator.GetPreferredInstaller(context.Get<Execution::Data::Manifest>());

@@ -41,7 +41,9 @@ namespace AppInstaller::CLI::Execution
             InstallLocation,
             InstallScope,
             InstallArchitecture,
+            InstallerType,
             HashOverride, // Ignore hash mismatches
+            SkipDependencies, // Skip dependencies
             IgnoreLocalArchiveMalwareScan, // Ignore the local malware scan on archive files
             AcceptPackageAgreements, // Accept all license agreements for packages
             Rename, // Renames the file of the executable. Only applies to the portable installerType
@@ -64,6 +66,7 @@ namespace AppInstaller::CLI::Execution
 
             //Validate Command
             ValidateManifest,
+            IgnoreWarnings,
 
             // Complete Command
             Word,
@@ -79,6 +82,9 @@ namespace AppInstaller::CLI::Execution
             IgnoreUnavailable,
             IgnoreVersions,
 
+            // Download Command
+            DownloadDirectory,
+
             // Setting Command
             AdminSettingEnable,
             AdminSettingDisable,
@@ -92,13 +98,23 @@ namespace AppInstaller::CLI::Execution
             // Show command
             ListVersions, // Used in Show command to list all available versions of an app
 
+            // List Command
+            Upgrade, // Used in List command to only show versions with upgrades
+
             // Pin command
             GatedVersion, // Differs from Version in that this supports wildcards
             BlockingPin,
+            PinInstalled,
+
+            // Error command
+            ErrorInput,
 
             // Configuration
             ConfigurationFile,
             ConfigurationAcceptWarning,
+            ConfigurationEnable,
+            ConfigurationDisable,
+            ConfigurationModulePath,
 
             // Common arguments
             NoVT, // Disable VirtualTerminal outputs

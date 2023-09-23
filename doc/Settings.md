@@ -31,12 +31,6 @@ To manually update the source use `winget source update`
 
 The `visual` settings involve visual elements that are displayed by WinGet
 
-```json
-    "visual": {
-        "progressBar": "accent"
-    },
-```
-
 ### progressBar
 
 Color of the progress bar that WinGet displays when not specified by arguments. 
@@ -44,6 +38,22 @@ Color of the progress bar that WinGet displays when not specified by arguments.
 - accent (default)
 - retro
 - rainbow
+
+```json
+    "visual": {
+        "progressBar": "accent"
+    },
+```
+
+### anonymizeDisplayedPaths
+
+Replaces some known folder paths with their respective environment variable. Defaults to true.
+
+```json
+    "visual": {
+        "anonymizeDisplayedPaths": true
+    },
+```
 
 ## Install Behavior
 
@@ -77,6 +87,15 @@ The `portablePackageMachineRoot` setting affects the default root directory wher
 ```json
     "installBehavior": {
         "portablePackageMachineRoot": "C:/Program Files/Packages/Portable"
+    },
+```
+
+### Skip Dependencies
+The 'skipDependencies' behavior affects whether dependencies are installed for a given package. Defaults to 'false' if value is not set or is invalid.
+
+```json
+    "installBehavior": {
+        "skipDependencies": true
     },
 ```
 
@@ -117,6 +136,18 @@ The `architectures` behavior affects what architectures will be selected when in
     "installBehavior": {
         "preferences": {
             "architectures": ["x64", "arm64"]
+        }
+    },
+```
+
+### Installer Types
+
+The `installerTypes` behavior affects what installer types will be selected when installing a package. The matching parameter is `--installer-type`.
+
+```json
+    "installBehavior": {
+        "preferences": {
+            "installerTypes": ["msi", "msix"]
         }
     },
 ```
@@ -229,38 +260,6 @@ You can enable the feature as shown below.
 ```json
    "experimentalFeatures": {
        "directMSI": true
-   },
-```
-
-### uninstallPreviousArgument
-
-This feature enables the Windows Package Manager to override the upgrade behavior to UninstallPrevious by passing the `--uninstall-previous` argument with the upgrade or install command. 
-You can enable the feature as shown below.
-
-```json
-   "experimentalFeatures": {
-       "uninstallPreviousArgument": true
-   },
-```
-
-### dependencies
-
-Experimental feature with the aim of managing dependencies, as of now it only shows package dependency information. You can enable the feature as shown below.
-
-```json
-   "experimentalFeatures": {
-       "dependencies": true
-   },
-```
-
-### pinning
-
-This feature enables the ability to pin packages to prevent the Windows Package Manager from updating them.
-You can enable the feature as shown below.
-
-```json
-   "experimentalFeatures": {
-       "pinning": true
    },
 ```
 

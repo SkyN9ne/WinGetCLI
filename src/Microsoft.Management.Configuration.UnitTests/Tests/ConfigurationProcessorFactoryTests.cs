@@ -11,6 +11,7 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
     using Microsoft.Management.Configuration.Processor.Set;
     using Microsoft.Management.Configuration.UnitTests.Fixtures;
     using Moq;
+    using WinRT;
     using Xunit;
     using Xunit.Abstractions;
     using static Microsoft.Management.Configuration.Processor.Constants.PowerShellConstants;
@@ -41,9 +42,10 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         [Fact]
         public void CreateSetProcessor_Test()
         {
-            var configurationProcessorFactory = new ConfigurationSetProcessorFactory(
-                ConfigurationProcessorType.Hosted,
-                null);
+            var configurationProcessorFactory = new PowerShellConfigurationSetProcessorFactory();
+
+            var properties = configurationProcessorFactory.As<IPowerShellConfigurationProcessorFactoryProperties>();
+            properties.ProcessorType = PowerShellConfigurationProcessorType.Hosted;
 
             var configurationSet = new ConfigurationSet();
 
@@ -56,22 +58,20 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
         }
 
         /// <summary>
-        /// CreateSetProcessor test.
+        /// AdditionalModulePaths test.
         /// </summary>
         [Fact]
         public void CreateSetProcessor_Properties_PsModulePath()
         {
-            var configurationProcessorFactoryPropertiesMock = new Mock<IConfigurationProcessorFactoryProperties>();
-            configurationProcessorFactoryPropertiesMock.Setup(c => c.AdditionalModulePaths)
-                .Returns(new List<string>
+            var configurationProcessorFactory = new PowerShellConfigurationSetProcessorFactory();
+
+            var properties = configurationProcessorFactory.As<IPowerShellConfigurationProcessorFactoryProperties>();
+            properties.ProcessorType = PowerShellConfigurationProcessorType.Hosted;
+            properties.AdditionalModulePaths = new List<string>
                 {
                     "ThisIsOnePath",
                     "ThisIsAnotherPath",
-                });
-
-            var configurationProcessorFactory = new ConfigurationSetProcessorFactory(
-                ConfigurationProcessorType.Hosted,
-                configurationProcessorFactoryPropertiesMock.Object);
+                };
 
             var configurationSet = new ConfigurationSet();
 
@@ -81,10 +81,59 @@ namespace Microsoft.Management.Configuration.UnitTests.Tests
             var processorSet = configurationProcessorSet as ConfigurationSetProcessor;
             Assert.NotNull(processorSet);
 
-            configurationProcessorFactoryPropertiesMock.Verify();
-
             var modulePath = processorSet.ProcessorEnvironment.GetVariable<string>(Variables.PSModulePath);
-            Assert.StartsWith("ThisIsOnePath;ThisIsAnotherPath", modulePath);
+            Assert.Contains("ThisIsOnePath;ThisIsAnotherPath", modulePath);
+        }
+
+        /// <summary>
+        /// Make sure the winget path is always added to PSModulePath.
+        /// </summary>
+        /// <param name="location">Location.</param>
+        [Theory]
+        [InlineData(PowerShellConfigurationProcessorLocation.CurrentUser)]
+        [InlineData(PowerShellConfigurationProcessorLocation.AllUsers)]
+        [InlineData(PowerShellConfigurationProcessorLocation.WinGetModulePath)]
+        [InlineData(PowerShellConfigurationProcessorLocation.Custom)]
+        public void CreateSetProcessor_WinGetPath(PowerShellConfigurationProcessorLocation location)
+        {
+            var configurationProcessorFactory = new PowerShellConfigurationSetProcessorFactory();
+
+            var properties = configurationProcessorFactory.As<IPowerShellConfigurationProcessorFactoryProperties>();
+            properties.Location = location;
+
+            if (properties.Location == PowerShellConfigurationProcessorLocation.Custom)
+            {
+                properties.CustomLocation = @"c:\this\is\a\module\path";
+            }
+
+            var configurationSet = new ConfigurationSet();
+
+            var setProcessor = configurationProcessorFactory.CreateSetProcessor(configurationSet) as ConfigurationSetProcessor;
+            Assert.NotNull(setProcessor);
+
+            var modulePath = setProcessor.ProcessorEnvironment.GetVariable<string>(Variables.PSModulePath);
+            Assert.Contains($"{PowerShellConfigurationSetProcessorFactory.GetWinGetModulePath()};", modulePath);
+        }
+
+        /// <summary>
+        /// Tests the custom location is added successfully.
+        /// </summary>
+        [Fact]
+        public void CreateSetProcessor_CustomLocation()
+        {
+            var configurationProcessorFactory = new PowerShellConfigurationSetProcessorFactory();
+
+            var properties = configurationProcessorFactory.As<IPowerShellConfigurationProcessorFactoryProperties>();
+            properties.Location = PowerShellConfigurationProcessorLocation.Custom;
+            properties.CustomLocation = @"c:\this\is\a\module\path";
+
+            var configurationSet = new ConfigurationSet();
+
+            var setProcessor = configurationProcessorFactory.CreateSetProcessor(configurationSet) as ConfigurationSetProcessor;
+            Assert.NotNull(setProcessor);
+
+            var modulePath = setProcessor.ProcessorEnvironment.GetVariable<string>(Variables.PSModulePath);
+            Assert.Contains($"{properties.CustomLocation};", modulePath);
         }
     }
 }

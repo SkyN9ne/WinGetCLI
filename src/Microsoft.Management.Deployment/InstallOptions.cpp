@@ -60,6 +60,14 @@ namespace winrt::Microsoft::Management::Deployment::implementation
     {
         m_packageInstallMode = value;
     }
+    winrt::Microsoft::Management::Deployment::PackageInstallerType InstallOptions::InstallerType()
+    {
+        return m_installerType;
+    }
+    void InstallOptions::InstallerType(winrt::Microsoft::Management::Deployment::PackageInstallerType const& value)
+    {
+        m_installerType = value;
+    }
     hstring InstallOptions::LogOutputPath()
     {
         return hstring(m_logOutputPath);
@@ -143,6 +151,14 @@ namespace winrt::Microsoft::Management::Deployment::implementation
     bool InstallOptions::AcceptPackageAgreements()
     {
         return m_acceptPackageAgreements;
+    }
+    void InstallOptions::SkipDependencies(bool value)
+    {
+        m_skipDependencies = value;
+    }
+    bool InstallOptions::SkipDependencies()
+    {
+        return m_skipDependencies;
     }
     CoCreatableMicrosoftManagementDeploymentClass(InstallOptions);
 }

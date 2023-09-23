@@ -33,7 +33,7 @@ namespace AppInstaller::Repository
 
         constexpr std::string_view s_Source_WingetCommunityDefault_Name = "winget"sv;
         constexpr std::string_view s_Source_WingetCommunityDefault_Arg = "https://cdn.winget.microsoft.com/cache"sv;
-        constexpr std::string_view s_Source_WingetCommunityDefault_AlternateArg = "https://winget.azureedge.net/cache"sv;
+        constexpr std::string_view s_Source_WingetCommunityDefault_AlternateArg = "https://winget-cache-pme-cxfsgwfxarb8hwg0.z01.azurefd.net/cache"sv;
         constexpr std::string_view s_Source_WingetCommunityDefault_Data = "Microsoft.Winget.Source_8wekyb3d8bbwe"sv;
         constexpr std::string_view s_Source_WingetCommunityDefault_Identifier = "Microsoft.Winget.Source_8wekyb3d8bbwe"sv;
 
@@ -43,7 +43,7 @@ namespace AppInstaller::Repository
 
         constexpr std::string_view s_Source_DesktopFrameworks_Name = "microsoft.builtin.desktop.frameworks"sv;
         constexpr std::string_view s_Source_DesktopFrameworks_Arg = "https://cdn.winget.microsoft.com/platform"sv;
-        constexpr std::string_view s_Source_DesktopFrameworks_AlternateArg = "https://winget.azureedge.net/platform"sv;
+        constexpr std::string_view s_Source_DesktopFrameworks_AlternateArg = "https://winget-cache-pme-cxfsgwfxarb8hwg0.z01.azurefd.net/platform"sv;
         constexpr std::string_view s_Source_DesktopFrameworks_Data = "Microsoft.Winget.Platform.Source_8wekyb3d8bbwe"sv;
         constexpr std::string_view s_Source_DesktopFrameworks_Identifier = "Microsoft.Winget.Platform.Source_8wekyb3d8bbwe"sv;
 
@@ -312,14 +312,23 @@ namespace AppInstaller::Repository
 
                 PinningChain chain;
                 auto chainElement = chain.Root();
-                chainElement->LoadCertificate(IDX_CERTIFICATE_STORE_ROOT_1).SetPinning(PinningVerificationType::PublicKey);
+                chainElement->LoadCertificate(IDX_CERTIFICATE_STORE_ROOT_1, CERTIFICATE_RESOURCE_TYPE).SetPinning(PinningVerificationType::PublicKey);
                 chainElement = chainElement.Next();
-                chainElement->LoadCertificate(IDX_CERTIFICATE_STORE_INTERMEDIATE_1).SetPinning(PinningVerificationType::Subject | PinningVerificationType::Issuer);
+                chainElement->LoadCertificate(IDX_CERTIFICATE_STORE_INTERMEDIATE_1, CERTIFICATE_RESOURCE_TYPE).SetPinning(PinningVerificationType::Subject | PinningVerificationType::Issuer);
                 chainElement = chainElement.Next();
-                chainElement->LoadCertificate(IDX_CERTIFICATE_STORE_LEAF_1).SetPinning(PinningVerificationType::Subject | PinningVerificationType::Issuer);
+                chainElement->LoadCertificate(IDX_CERTIFICATE_STORE_LEAF_1, CERTIFICATE_RESOURCE_TYPE).SetPinning(PinningVerificationType::Subject | PinningVerificationType::Issuer);
+
+                PinningChain chain2;
+                auto chainElement2 = chain2.Root();
+                chainElement2->LoadCertificate(IDX_CERTIFICATE_STORE_ROOT_2, CERTIFICATE_RESOURCE_TYPE).SetPinning(PinningVerificationType::PublicKey);
+                chainElement2 = chainElement2.Next();
+                chainElement2->LoadCertificate(IDX_CERTIFICATE_STORE_INTERMEDIATE_2, CERTIFICATE_RESOURCE_TYPE).SetPinning(PinningVerificationType::Subject | PinningVerificationType::Issuer);
+                chainElement2 = chainElement2.Next();
+                chainElement2->LoadCertificate(IDX_CERTIFICATE_STORE_LEAF_2, CERTIFICATE_RESOURCE_TYPE).SetPinning(PinningVerificationType::Subject | PinningVerificationType::Issuer);
 
                 details.CertificatePinningConfiguration = PinningConfiguration("Microsoft Store Source");
                 details.CertificatePinningConfiguration.AddChain(std::move(chain));
+                details.CertificatePinningConfiguration.AddChain(std::move(chain2));
             }
 
             return details;

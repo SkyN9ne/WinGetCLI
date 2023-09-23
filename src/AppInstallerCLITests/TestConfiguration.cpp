@@ -21,7 +21,7 @@ namespace TestCommon
         }
     }
 
-    winrt::event_token TestConfigurationSetProcessorFactory::Diagnostics(const EventHandler<DiagnosticInformation>& handler)
+    winrt::event_token TestConfigurationSetProcessorFactory::Diagnostics(const EventHandler<IDiagnosticInformation>& handler)
     {
         return m_diagnostics.add(handler);
     }
@@ -40,11 +40,11 @@ namespace TestCommon
     {
     }
 
-    IConfigurationUnitProcessorDetails TestConfigurationSetProcessor::GetUnitProcessorDetails(const ConfigurationUnit& unit, ConfigurationUnitDetailLevel detailLevel)
+    IConfigurationUnitProcessorDetails TestConfigurationSetProcessor::GetUnitProcessorDetails(const ConfigurationUnit& unit, ConfigurationUnitDetailFlags detailFlags)
     {
         if (GetUnitProcessorDetailsFunc)
         {
-            return GetUnitProcessorDetailsFunc(unit, detailLevel);
+            return GetUnitProcessorDetailsFunc(unit, detailFlags);
         }
         else
         {
@@ -52,27 +52,27 @@ namespace TestCommon
         }
     }
 
-    IConfigurationUnitProcessor TestConfigurationSetProcessor::CreateUnitProcessor(const ConfigurationUnit& unit, const IMapView<winrt::hstring, IInspectable>& directivesOverlay)
+    IConfigurationUnitProcessor TestConfigurationSetProcessor::CreateUnitProcessor(const ConfigurationUnit& unit)
     {
         if (CreateUnitProcessorFunc)
         {
-            return CreateUnitProcessorFunc(unit, directivesOverlay);
+            return CreateUnitProcessorFunc(unit);
         }
         else
         {
-            return winrt::make<TestConfigurationUnitProcessor>(unit, directivesOverlay);
+            return winrt::make<TestConfigurationUnitProcessor>(unit);
         }
     }
 
     TestConfigurationUnitProcessorDetails::TestConfigurationUnitProcessorDetails(const ConfigurationUnit& unit) :
-        UnitNameValue(unit.UnitName())
+        UnitTypeValue(unit.Type())
     {}
 
-    TestConfigurationUnitProcessor::TestConfigurationUnitProcessor(const ConfigurationUnit& unit, const IMapView<winrt::hstring, IInspectable>& directivesOverlay) :
-        UnitValue(unit), DirectivesOverlayValue(directivesOverlay)
+    TestConfigurationUnitProcessor::TestConfigurationUnitProcessor(const ConfigurationUnit& unit) :
+        UnitValue(unit)
     {}
 
-    TestSettingsResult TestConfigurationUnitProcessor::TestSettings()
+    ITestSettingsResult TestConfigurationUnitProcessor::TestSettings()
     {
         if (TestSettingsFunc)
         {
@@ -80,11 +80,11 @@ namespace TestCommon
         }
         else
         {
-            return TestSettingsResult{};
+            return winrt::make<TestSettingsResultInstance>(UnitValue);
         }
     }
 
-    GetSettingsResult TestConfigurationUnitProcessor::GetSettings()
+    IGetSettingsResult TestConfigurationUnitProcessor::GetSettings()
     {
         if (GetSettingsFunc)
         {
@@ -92,11 +92,11 @@ namespace TestCommon
         }
         else
         {
-            return GetSettingsResult{};
+            return winrt::make<GetSettingsResultInstance>(UnitValue);
         }
     }
 
-    ApplySettingsResult TestConfigurationUnitProcessor::ApplySettings()
+    IApplySettingsResult TestConfigurationUnitProcessor::ApplySettings()
     {
         if (ApplySettingsFunc)
         {
@@ -104,7 +104,7 @@ namespace TestCommon
         }
         else
         {
-            return ApplySettingsResult{};
+            return winrt::make<ApplySettingsResultInstance>(UnitValue);
         }
     }
 }

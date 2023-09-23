@@ -209,7 +209,7 @@ namespace AppInstaller::Filesystem
 
         while (prefixItr != prefix.end() && sourceItr != source.end())
         {
-            if (Utility::ICUCaseInsensitiveEquals(prefixItr->u8string(), sourceItr->u8string()))
+            if (!Utility::ICUCaseInsensitiveEquals(prefixItr->u8string(), sourceItr->u8string()))
             {
                 break;
             }
@@ -253,6 +253,6 @@ namespace AppInstaller::Filesystem
         {
             return false;
         }
-        return Utility::CaseInsensitiveEquals(Utility::ConvertToUTF8(volumeName1), Utility::ConvertToUTF8(volumeName2));
+        return Utility::ICUCaseInsensitiveEquals(Utility::ConvertToUTF8(volumeName1), Utility::ConvertToUTF8(volumeName2));
     }
 }

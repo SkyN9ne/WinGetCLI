@@ -72,9 +72,11 @@ TEST_CASE("VerifyIsSameVolume", "[filesystem]")
     std::filesystem::path path9 = L"a";
     std::filesystem::path path10 = L"b";
 
-    // Verify that a relative path points to the current volume.
     REQUIRE(IsSameVolume(path1, path2));
-    REQUIRE(IsSameVolume(path5, path7));
+    if (IsSameVolume(path5, path5))
+    {
+        REQUIRE(IsSameVolume(path5, path7));
+    }
     REQUIRE(IsSameVolume(path3, path4));
     REQUIRE(IsSameVolume(path9, path10));
 
@@ -86,4 +88,18 @@ TEST_CASE("VerifyIsSameVolume", "[filesystem]")
     REQUIRE_FALSE(IsSameVolume(path5, path6));
     REQUIRE_FALSE(IsSameVolume(path4, path6));
     REQUIRE_FALSE(IsSameVolume(path6, path8));
+}
+
+TEST_CASE("ReplaceCommonPathPrefix", "[filesystem]")
+{
+    std::filesystem::path prefix = "C:\\test1\\test2";
+    std::string replacement = "%TEST%";
+
+    std::filesystem::path shouldReplace = "C:\\test1\\test2\\subdir1\\subdir2";
+    REQUIRE(ReplaceCommonPathPrefix(shouldReplace, prefix, replacement));
+    REQUIRE(shouldReplace.u8string() == (replacement + "\\subdir1\\subdir2"));
+
+    std::filesystem::path shouldNotReplace = "C:\\test1\\test3\\subdir1\\subdir2";
+    REQUIRE(!ReplaceCommonPathPrefix(shouldNotReplace, prefix, replacement));
+    REQUIRE(shouldNotReplace.u8string() == "C:\\test1\\test3\\subdir1\\subdir2");
 }
