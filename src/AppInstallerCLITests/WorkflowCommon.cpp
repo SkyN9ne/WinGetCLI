@@ -27,7 +27,7 @@ namespace TestCommon
                 auto manifest = YamlParser::CreateFromPath(TestDataFile("InstallFlowTest_Exe.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(std::vector<Manifest>{ manifest }, source),
+                        TestCompositePackage::Make(std::vector<Manifest>{ manifest }, source),
                         PackageMatchFilter(PackageMatchField::Id, MatchType::Exact, "TestQueryReturnOne")));
             });
 
@@ -37,13 +37,13 @@ namespace TestCommon
                 auto manifest = YamlParser::CreateFromPath(TestDataFile("InstallFlowTest_Exe.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(std::vector<Manifest>{ manifest }, source),
+                        TestCompositePackage::Make(std::vector<Manifest>{ manifest }, source),
                         PackageMatchFilter(PackageMatchField::Id, MatchType::Exact, "TestQueryReturnTwo")));
 
                 auto manifest2 = YamlParser::CreateFromPath(TestDataFile("Manifest-Good.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(std::vector<Manifest>{ manifest2 }, source),
+                        TestCompositePackage::Make(std::vector<Manifest>{ manifest2 }, source),
                         PackageMatchFilter(PackageMatchField::Id, MatchType::Exact, "TestQueryReturnTwo")));
             });
 
@@ -55,9 +55,9 @@ namespace TestCommon
                 auto manifest3 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_Exe_2.yaml"));
 
                 auto testPackage =
-                    TestPackage::Make(
+                    TestCompositePackage::Make(
                         manifest,
-                        TestPackage::MetadataMap
+                        TestCompositePackage::MetadataMap
                         {
                             { PackageVersionMetadata::InstalledType, "Exe" },
                             { PackageVersionMetadata::StandardUninstallCommand, "C:\\uninstall.exe" },
@@ -66,7 +66,10 @@ namespace TestCommon
                         std::vector<Manifest>{ manifest3, manifest2, manifest },
                         source
                         );
-                testPackage->IsSameOverride = [](const IPackage*, const IPackage*) { return true; };
+                for (auto& availablePackage : testPackage->Available)
+                {
+                    availablePackage->IsSameOverride = [](const IPackage*, const IPackage*) { return true; };
+                }
                 matches.emplace_back(
                     ResultMatch(
                         testPackage,
@@ -81,9 +84,9 @@ namespace TestCommon
                 auto manifest3 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_Exe_2_LicenseAgreement.yaml"));
 
                 auto testPackage =
-                    TestPackage::Make(
+                    TestCompositePackage::Make(
                         manifest,
-                        TestPackage::MetadataMap
+                        TestCompositePackage::MetadataMap
                         {
                             { PackageVersionMetadata::InstalledType, "Exe" },
                             { PackageVersionMetadata::StandardUninstallCommand, "C:\\uninstall.exe" },
@@ -92,7 +95,10 @@ namespace TestCommon
                         std::vector<Manifest>{ manifest3, manifest2, manifest },
                         source
                         );
-                testPackage->IsSameOverride = [](const IPackage*, const IPackage*) { return true; };
+                for (auto& availablePackage : testPackage->Available)
+                {
+                    availablePackage->IsSameOverride = [](const IPackage*, const IPackage*) { return true; };
+                }
                 matches.emplace_back(
                     ResultMatch(
                         testPackage,
@@ -106,9 +112,9 @@ namespace TestCommon
                 auto manifest2 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_Portable.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Portable" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Portable" } },
                             std::vector<Manifest>{ manifest2, manifest },
                             source
                         ),
@@ -123,9 +129,9 @@ namespace TestCommon
 
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Msix" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Msix" } },
                             std::vector<Manifest>{ manifest2, manifest },
                             source
                         ),
@@ -140,9 +146,9 @@ namespace TestCommon
 
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Msix" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Msix" } },
                             std::vector<Manifest>{ manifest2, manifest },
                             source
                         ),
@@ -157,9 +163,9 @@ namespace TestCommon
 
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap
+                            TestCompositePackage::MetadataMap
                             {
                                 { PackageVersionMetadata::InstalledType, "Msix" },
                                 { PackageVersionMetadata::PinnedState, "PinnedByManifest" },
@@ -177,9 +183,9 @@ namespace TestCommon
                 auto manifest2 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_Zip_Exe.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
                             std::vector<Manifest>{ manifest2, manifest },
                             source
                         ),
@@ -195,13 +201,29 @@ namespace TestCommon
                 installed.Version = "1.0.0.0";
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             installed,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "MSStore" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "MSStore" } },
                             std::vector<Manifest>{ available },
                             source
                         ),
                         PackageMatchFilter(PackageMatchField::Id, MatchType::Exact, "AppInstallerCliTest.TestMSStoreInstaller")));
+            });
+
+        const TestSourceResult TestInstaller_Exe_ExpectedReturnCodes(
+            "AppInstallerCliTest.ExpectedReturnCodes"sv,
+            [](std::vector<ResultMatch>& matches, std::weak_ptr<const ISource> source) {
+                auto manifest = YamlParser::CreateFromPath(TestDataFile("InstallFlowTest_ExpectedReturnCodes.yaml"));
+                auto manifest2 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_ExpectedReturnCodes.yaml"));
+                matches.emplace_back(
+                    ResultMatch(
+                        TestCompositePackage::Make(
+                            manifest,
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
+                            std::vector<Manifest>{ manifest2, manifest },
+                            source
+                        ),
+                        PackageMatchFilter(PackageMatchField::Id, MatchType::Exact, "AppInstallerCliTest.ExpectedReturnCodes")));
             });
 
         const TestSourceResult TestInstaller_Exe_UnknownVersion(
@@ -213,9 +235,9 @@ namespace TestCommon
                 installed.Version = "unknown";
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             installed,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
                             std::vector<Manifest>{ available },
                             source
                         ),
@@ -229,9 +251,9 @@ namespace TestCommon
                 auto manifest2 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_Exe.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest2,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
                             std::vector<Manifest>{ manifest2, manifest },
                             source
                         ),
@@ -245,9 +267,9 @@ namespace TestCommon
                 auto manifest2 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_Exe.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Msix" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Msix" } },
                             std::vector<Manifest>{ manifest2, manifest },
                             source
                         ),
@@ -261,9 +283,9 @@ namespace TestCommon
                 auto manifest2 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_Exe_ARPInstallerType.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Msix" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Msix" } },
                             std::vector<Manifest>{ manifest2, manifest },
                             source
                         ),
@@ -277,9 +299,9 @@ namespace TestCommon
                 auto manifest2 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_Exe_UnsupportedArgs.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
                             std::vector<Manifest>{ manifest2, manifest },
                             source
                         ),
@@ -292,7 +314,7 @@ namespace TestCommon
                 auto manifest = YamlParser::CreateFromPath(TestDataFile("InstallFlowTest_Exe.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             std::vector<Manifest>{ manifest },
                             source
                         ),
@@ -306,9 +328,9 @@ namespace TestCommon
                 auto manifest2 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_ExeDependencies.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap
+                            TestCompositePackage::MetadataMap
                             {
                                 { PackageVersionMetadata::InstalledType, "Exe" },
                                 { PackageVersionMetadata::StandardUninstallCommand, "C:\\uninstall.exe" },
@@ -326,7 +348,7 @@ namespace TestCommon
                 auto manifest = YamlParser::CreateFromPath(TestDataFile("Installer_Msix_WFDependency.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             std::vector<Manifest>{ manifest },
                             source
                         ),
@@ -340,9 +362,9 @@ namespace TestCommon
                 auto manifest2 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_Exe_2_LicenseAgreement.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
+                            TestCompositePackage::MetadataMap{ { PackageVersionMetadata::InstalledType, "Exe" } },
                             std::vector<Manifest>{ manifest2, manifest },
                             source
                         ),
@@ -357,9 +379,9 @@ namespace TestCommon
                 auto manifest3 = YamlParser::CreateFromPath(TestDataFile("UpdateFlowTest_Exe_2.yaml"));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest,
-                            TestPackage::MetadataMap
+                            TestCompositePackage::MetadataMap
                             {
                                 { PackageVersionMetadata::InstalledType, "Exe" },
                                 { PackageVersionMetadata::StandardUninstallCommand, "C:\\uninstall.exe" },
@@ -371,9 +393,9 @@ namespace TestCommon
                         PackageMatchFilter(PackageMatchField::Id, MatchType::Exact, "AppInstallerCliTest.TestExeInstaller")));
                 matches.emplace_back(
                     ResultMatch(
-                        TestPackage::Make(
+                        TestCompositePackage::Make(
                             manifest2,
-                            TestPackage::MetadataMap
+                            TestCompositePackage::MetadataMap
                             {
                                 { PackageVersionMetadata::InstalledType, "Exe" },
                                 { PackageVersionMetadata::StandardUninstallCommand, "C:\\uninstall.exe" },
@@ -691,6 +713,26 @@ namespace TestCommon
     {
         context.Override({ Workflow::EnableWindowsFeaturesDependencies, [](TestContext&)
         {
+        } });
+    }
+
+    void OverrideRegisterStartupAfterReboot(TestContext& context)
+    {
+        context.Override({ "RegisterStartupAfterReboot", [](TestContext&)
+        {
+        } });
+    }
+
+    void OverrideDownloadInstallerFileForMSStoreDownload(TestContext& context)
+    {
+        context.Override({ DownloadInstallerFile, [](TestContext& context)
+        {
+            const auto& installer = context.Get<Data::Installer>().value();
+            const auto& installerPath = context.Get<Data::InstallerPath>();
+            std::ofstream file(installerPath, std::ofstream::out | std::ofstream::trunc);
+            file << installer.Url;
+            file.close();
+            context.Add<Data::HashPair>({ {}, {} });
         } });
     }
 }

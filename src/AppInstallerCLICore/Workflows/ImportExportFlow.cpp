@@ -5,9 +5,11 @@
 #include "ImportExportFlow.h"
 #include "UpdateFlow.h"
 #include "PackageCollection.h"
+#include "DependenciesFlow.h"
 #include "WorkflowBase.h"
 #include <winget/RepositorySearch.h>
 #include <winget/Runtime.h>
+#include <winget/PackageVersionSelection.h>
 
 namespace AppInstaller::CLI::Workflow
 {
@@ -59,20 +61,22 @@ namespace AppInstaller::CLI::Workflow
         // If requested, checks that the installed version is available and reports a warning if it is not.
         std::shared_ptr<IPackageVersion> GetAvailableVersionForInstalledPackage(
             Execution::Context& context,
-            std::shared_ptr<IPackage> package,
+            std::shared_ptr<ICompositePackage> package,
             Utility::LocIndView version,
             Utility::LocIndView channel,
             bool checkVersion)
         {
+            std::shared_ptr<IPackageVersionCollection> availableVersions = GetAvailableVersionsForInstalledVersion(package);
+
             if (!checkVersion)
             {
-                return package->GetLatestAvailableVersion(PinBehavior::IgnorePins);
+                return availableVersions->GetLatestVersion();
             }
 
-            auto availablePackageVersion = package->GetAvailableVersion({ "", version, channel });
+            auto availablePackageVersion = availableVersions->GetVersion({ "", version, channel });
             if (!availablePackageVersion)
             {
-                availablePackageVersion = package->GetLatestAvailableVersion(PinBehavior::IgnorePins);
+                availablePackageVersion = availableVersions->GetLatestVersion();
                 if (availablePackageVersion)
                 {
                     // Warn installed version is not available.
@@ -99,7 +103,7 @@ namespace AppInstaller::CLI::Workflow
         auto& exportedSources = exportedPackages.Sources;
         for (const auto& packageMatch : searchResult.Matches)
         {
-            auto installedPackageVersion = packageMatch.Package->GetInstalledVersion();
+            auto installedPackageVersion = GetInstalledVersion(packageMatch.Package);
             auto version = installedPackageVersion->GetProperty(PackageVersionProperty::Version);
             auto channel = installedPackageVersion->GetProperty(PackageVersionProperty::Channel);
 
@@ -305,8 +309,19 @@ namespace AppInstaller::CLI::Workflow
 
     void InstallImportedPackages(Execution::Context& context)
     {
-        context << Workflow::ProcessMultiplePackages(
-            Resource::String::ImportCommandReportDependencies, APPINSTALLER_CLI_ERROR_IMPORT_INSTALL_FAILED, {}, true, true);
+        // Inform all dependencies here. During SubContexts processing, dependencies are ignored.
+        auto& packageSubContexts = context.Get<Execution::Data::PackageSubContexts>();
+        Manifest::DependencyList allDependencies;
+        for (auto& packageContext : packageSubContexts)
+        {
+            allDependencies.Add(packageContext->Get<Execution::Data::Installer>().value().Dependencies);
+        }
+        context.Add<Execution::Data::Dependencies>(allDependencies);
+
+        context <<
+            Workflow::ReportDependencies(Resource::String::ImportCommandReportDependencies) <<
+            Workflow::ProcessMultiplePackages(
+                Resource::String::ImportCommandReportDependencies, APPINSTALLER_CLI_ERROR_IMPORT_INSTALL_FAILED, {}, true, true);
 
         if (context.GetTerminationHR() == APPINSTALLER_CLI_ERROR_IMPORT_INSTALL_FAILED)
         {

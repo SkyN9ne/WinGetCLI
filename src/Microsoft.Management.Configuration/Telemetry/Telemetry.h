@@ -49,6 +49,7 @@ namespace winrt::Microsoft::Management::Configuration::implementation
         static constexpr std::string_view GetAction = "get";
         static constexpr std::string_view ApplyAction = "apply";
         static constexpr std::string_view TestAction = "test";
+        static constexpr std::string_view ExportAction = "export";
 
         // Logs information about running a configuration unit.
         // The caller is expected to only call this for failures from publicly available units.
@@ -84,6 +85,7 @@ namespace winrt::Microsoft::Management::Configuration::implementation
         // Logs a processing summary event for a configuration set.
         void LogConfigProcessingSummary(
             const guid& setIdentifier,
+            std::string_view inputHash,
             bool fromHistory,
             ConfigurationUnitIntent runIntent,
             hresult result,
@@ -106,6 +108,12 @@ namespace winrt::Microsoft::Management::Configuration::implementation
         // Logs a processing summary event for a configuration set apply run.
         void LogConfigProcessingSummaryForApply(
             const ConfigurationSet& configurationSet,
+            const ApplyConfigurationSetResult& result) const noexcept;
+
+        // Logs a processing summary event for a configuration set apply run exception.
+        void LogConfigProcessingSummaryForApplyException(
+            const ConfigurationSet& configurationSet,
+            hresult error,
             const ApplyConfigurationSetResult& result) const noexcept;
 
     protected:

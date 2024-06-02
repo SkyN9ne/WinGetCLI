@@ -3,6 +3,8 @@
 #include "pch.h"
 #include "DependencyNodeProcessor.h"
 #include "ManifestComparator.h"
+#include <winget/PinningData.h>
+#include <winget/PackageVersionSelection.h>
 
 using namespace AppInstaller::Manifest;
 using namespace AppInstaller::Repository;
@@ -25,14 +27,14 @@ namespace AppInstaller::CLI::Workflow
 
         if (matches.empty())
         {
-            error << Resource::String::DependenciesFlowNoMatches;
+            error << Resource::String::DependenciesFlowNoMatches << std::endl;
             return DependencyNodeProcessorResult::Error;
         }
 
         if (matches.size() > 1)
         {
             auto dependencyNodeId = Utility::LocIndString{ Utility::Normalize(dependencyNode.Id()) };
-            error << Resource::String::DependenciesFlowSourceTooManyMatches(dependencyNodeId);
+            error << Resource::String::DependenciesFlowSourceTooManyMatches(dependencyNodeId) << std::endl;
             AICLI_LOG(CLI, Error, << "Too many matches for package " << dependencyNode.Id());
             return DependencyNodeProcessorResult::Error;
         }
@@ -40,19 +42,22 @@ namespace AppInstaller::CLI::Workflow
         const auto& match = matches.at(0);
         const auto& package = match.Package;
         auto packageId = package->GetProperty(PackageProperty::Id);
-        m_nodePackageInstalledVersion = package->GetInstalledVersion();
+        m_nodePackageInstalledVersion = GetInstalledVersion(package);
+        std::shared_ptr<IPackageVersionCollection> availableVersions = GetAvailableVersionsForInstalledVersion(package);
 
-        PinBehavior pinBehavior;
         if (m_context.Args.Contains(Execution::Args::Type::Force))
         {
-            pinBehavior = PinBehavior::IgnorePins;
+            m_nodePackageLatestVersion = availableVersions->GetLatestVersion();
         }
         else
         {
-            pinBehavior = m_context.Args.Contains(Execution::Args::Type::IncludePinned) ? PinBehavior::IncludePinned : PinBehavior::ConsiderPins;
-        }
+            Pinning::PinBehavior pinBehavior = m_context.Args.Contains(Execution::Args::Type::IncludePinned) ? Pinning::PinBehavior::IncludePinned : Pinning::PinBehavior::ConsiderPins;
 
-        m_nodePackageLatestVersion = package->GetLatestAvailableVersion(pinBehavior);
+            Pinning::PinningData pinningData{ Pinning::PinningData::Disposition::ReadOnly };
+            auto evaluator = pinningData.CreatePinStateEvaluator(pinBehavior, m_nodePackageInstalledVersion);
+
+            m_nodePackageLatestVersion = evaluator.GetLatestAvailableVersionForPins(availableVersions);
+        }
 
         if (m_nodePackageInstalledVersion && dependencyNode.IsVersionOk(Utility::Version(m_nodePackageInstalledVersion->GetProperty(PackageVersionProperty::Version))))
         {
@@ -60,17 +65,17 @@ namespace AppInstaller::CLI::Workflow
             // as we won't keep searching for dependencies for installed packages
             return DependencyNodeProcessorResult::Skipped;
         }
-        
+
         if (!m_nodePackageLatestVersion)
         {
-            error << Resource::String::DependenciesFlowPackageVersionNotFound(Utility::LocIndView{ Utility::Normalize(packageId) });
+            error << Resource::String::DependenciesFlowPackageVersionNotFound(Utility::LocIndView{ Utility::Normalize(packageId) }) << std::endl;
             AICLI_LOG(CLI, Error, << "Latest available version not found for package " << packageId);
             return DependencyNodeProcessorResult::Error;
         }
 
         if (!dependencyNode.IsVersionOk(Utility::Version(m_nodePackageLatestVersion->GetProperty(PackageVersionProperty::Version))))
         {
-            error << Resource::String::DependenciesFlowNoMinVersion(Utility::LocIndView{ Utility::Normalize(packageId) });
+            error << Resource::String::DependenciesFlowNoMinVersion(Utility::LocIndView{ Utility::Normalize(packageId) }) << std::endl;
             AICLI_LOG(CLI, Error, << "No suitable min version found for package " << packageId);
             return DependencyNodeProcessorResult::Error;
         }
@@ -80,7 +85,7 @@ namespace AppInstaller::CLI::Workflow
 
         if (m_nodeManifest.Installers.empty())
         {
-            error << Resource::String::DependenciesFlowNoInstallerFound(Utility::LocIndView{ Utility::Normalize(m_nodeManifest.Id) });
+            error << Resource::String::DependenciesFlowNoInstallerFound(Utility::LocIndView{ Utility::Normalize(m_nodeManifest.Id) }) << std::endl;
             AICLI_LOG(CLI, Error, << "Installer not found for manifest " << m_nodeManifest.Id << " with version" << m_nodeManifest.Version);
             return DependencyNodeProcessorResult::Error;
         }
@@ -98,7 +103,7 @@ namespace AppInstaller::CLI::Workflow
         {
             auto manifestId = Utility::LocIndString{ Utility::Normalize(m_nodeManifest.Id) };
             auto manifestVersion = Utility::LocIndString{ m_nodeManifest.Version };
-            error << Resource::String::DependenciesFlowNoSuitableInstallerFound(manifestId, manifestVersion);
+            error << Resource::String::DependenciesFlowNoSuitableInstallerFound(manifestId, manifestVersion) << std::endl;
             AICLI_LOG(CLI, Error, << "No suitable installer found for manifest " << m_nodeManifest.Id << " with version " << m_nodeManifest.Version);
             return DependencyNodeProcessorResult::Error;
         }

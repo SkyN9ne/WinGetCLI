@@ -3,12 +3,11 @@
 #include "pch.h"
 #include "ExecutionContext.h"
 #include "PortableInstaller.h"
-#include "winget/Manifest.h"
-#include "winget/ManifestCommon.h"
-#include "winget/Filesystem.h"
-#include "winget/PathVariable.h"
-#include "Microsoft/PortableIndex.h"
-#include "Microsoft/Schema/IPortableIndex.h"
+#include <winget/Manifest.h>
+#include <winget/ManifestCommon.h>
+#include <winget/Filesystem.h>
+#include <winget/PathVariable.h>
+#include <winget/PortableIndex.h>
 #include <AppInstallerErrors.h>
 #include <AppInstallerRuntime.h>
 
@@ -17,7 +16,7 @@ using namespace AppInstaller::Registry;
 using namespace AppInstaller::Registry::Portable;
 using namespace AppInstaller::Registry::Environment;
 using namespace AppInstaller::Repository;
-using namespace AppInstaller::Repository::SQLite;
+using namespace AppInstaller::SQLite;
 using namespace AppInstaller::Repository::Microsoft;
 using namespace AppInstaller::Repository::Microsoft::Schema;
 

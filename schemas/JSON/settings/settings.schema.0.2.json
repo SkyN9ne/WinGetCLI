@@ -50,6 +50,29 @@
             "error",
             "critical"
           ]
+        },
+        "channels": {
+          "description": "The logging channels to enable",
+          "type": "array",
+          "items": {
+            "uniqueItems": true,
+            "type": "string",
+            "enum": [
+              "fail",
+              "cli",
+              "sql",
+              "repo",
+              "yaml",
+              "core",
+              "test",
+              "config",
+              "default",
+              "all"
+            ],
+            "maxLength": 20
+          },
+          "minItems": 0,
+          "maxItems": 20
         }
       }
     },
@@ -81,7 +104,7 @@
           "description": "The architecture(s) to use for a package install",
           "type": "array",
           "items": {
-            "uniqueItems": "true",
+            "uniqueItems": true,
             "type": "string",
             "enum": [
               "neutral",
@@ -98,7 +121,7 @@
           "description": "The installerType(s) to use for a package install",
           "type": "array",
           "items": {
-            "uniqueItems": "true",
+            "uniqueItems": true,
             "type": "string",
             "enum": [
               "inno",
@@ -147,7 +170,13 @@
         "defaultInstallRoot": {
           "description": "Default install location to use for packages that require it when not specified",
           "type": "string",
-          "maxLength": "32767"
+          "maxLength": 32767
+        },
+        "maxResumes": {
+          "description": "The maximum number of resumes allowed for a single resume id. This is to prevent continuous reboots if an install that requires a reboot is not properly detected.",
+          "type": "integer",
+          "default": 3,
+          "minimum": 1
         }
       }
     },
@@ -237,13 +266,33 @@
           "type": "boolean",
           "default": false
         },
-        "configuration": {
-          "description": "Enable support for configuration",
+        "configuration03": {
+          "description": "Enable support for configuration schema 0.3",
           "type": "boolean",
           "default": false
         },
-        "windowsFeature": {
-          "description": "Enable support for enabling Windows Feature(s)",
+        "sideBySide": {
+          "description": "Enable support for improved side-by-side handling",
+          "type": "boolean",
+          "default": false
+        },
+        "configureSelfElevate": {
+          "description": "Enable configure commands request elevation as needed",
+          "type": "boolean",
+          "default": false
+        },
+        "storeDownload": {
+          "description": "Enable support for downloading packages from the Microsoft Store",
+          "type": "boolean",
+          "default": false
+        },
+        "configureExport": {
+          "description": "Enable support for the configure export command",
+          "type": "boolean",
+          "default": false
+        },
+        "indexV2": {
+          "description": "Enable retrieving the V2 index for the winget source",
           "type": "boolean",
           "default": false
         }

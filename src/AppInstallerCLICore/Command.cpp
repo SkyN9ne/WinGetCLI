@@ -6,6 +6,8 @@
 #include <winget/UserSettings.h>
 #include <AppInstallerRuntime.h>
 #include <winget/Locale.h>
+#include <winget/Reboot.h>
+#include <winget/Authentication.h>
 
 using namespace std::string_view_literals;
 using namespace AppInstaller::Utility::literals;
@@ -611,6 +613,7 @@ namespace AppInstaller::CLI
         }
 
         // Special handling for multi-query arguments:
+        execArgs.MakeMultiQueryContainUniqueValues();
         execArgs.MoveMultiQueryToSingleQueryIfNeeded();
     }
 
@@ -635,7 +638,7 @@ namespace AppInstaller::CLI
                 throw GroupPolicyException(arg.GroupPolicy());
             }
 
-            if (arg.AdminSetting() != AdminSetting::Unknown && !Settings::IsAdminSettingEnabled(arg.AdminSetting()) && execArgs.Contains(arg.ExecArgType()))
+            if (arg.AdminSetting() != BoolAdminSetting::Unknown && !Settings::IsAdminSettingEnabled(arg.AdminSetting()) && execArgs.Contains(arg.ExecArgType()))
             {
                 auto setting = Settings::AdminSettingToString(arg.AdminSetting());
                 AICLI_LOG(CLI, Error, << "Trying to use argument: " << arg.Name() << " disabled by admin setting " << setting);
@@ -715,7 +718,7 @@ namespace AppInstaller::CLI
         {
             if (Manifest::ConvertToScopeEnum(execArgs.GetArg(Execution::Args::Type::InstallScope)) == Manifest::ScopeEnum::Unknown)
             {
-                auto validOptions = Utility::Join(", "_liv, std::vector<Utility::LocIndString>{ "user"_lis, "machine"_lis});
+                auto validOptions = Utility::Join(", "_liv, std::vector<Utility::LocIndString>{ "user"_lis, "machine"_lis });
                 throw CommandException(Resource::String::InvalidArgumentValueError(ArgumentCommon::ForType(Execution::Args::Type::InstallScope).Name, validOptions));
             }
         }
@@ -726,6 +729,15 @@ namespace AppInstaller::CLI
             if (selectedInstallerType == Manifest::InstallerTypeEnum::Unknown)
             {
                 throw CommandException(Resource::String::InvalidArgumentValueErrorWithoutValidValues(Argument::ForType(Execution::Args::Type::InstallerType).Name()));
+            }
+        }
+
+        if (execArgs.Contains(Execution::Args::Type::AuthenticationMode))
+        {
+            if (Authentication::ConvertToAuthenticationMode(execArgs.GetArg(Execution::Args::Type::AuthenticationMode)) == Authentication::AuthenticationMode::Unknown)
+            {
+                auto validOptions = Utility::Join(", "_liv, std::vector<Utility::LocIndString>{ "interactive"_lis, "silentPreferred"_lis, "silent"_lis });
+                throw CommandException(Resource::String::InvalidArgumentValueError(ArgumentCommon::ForType(Execution::Args::Type::AuthenticationMode).Name, validOptions));
             }
         }
 
@@ -840,7 +852,7 @@ namespace AppInstaller::CLI
 
     void Command::Complete(Execution::Context&, Execution::Args::Type) const
     {
-        // Derived commands must suppy context sensitive argument values.
+        // Derived commands must supply context sensitive argument values.
     }
 
     void Command::Execute(Execution::Context& context) const
@@ -850,14 +862,7 @@ namespace AppInstaller::CLI
         if (!Settings::GroupPolicies().IsEnabled(Settings::TogglePolicy::Policy::WinGet))
         {
             AICLI_LOG(CLI, Error, << "WinGet is disabled by group policy");
-            throw GroupPolicyException(Settings::TogglePolicy::Policy::WinGet);
-        }
-
-        // Block CLI execution if WinGetCommandLineInterfaces is disabled by Policy
-        if (!Settings::GroupPolicies().IsEnabled(Settings::TogglePolicy::Policy::WinGetCommandLineInterfaces))
-        {
-            AICLI_LOG(CLI, Error, << "WinGet is disabled by group policy");
-            throw GroupPolicyException(Settings::TogglePolicy::Policy::WinGetCommandLineInterfaces);
+            throw Settings::GroupPolicyException::GroupPolicyException(Settings::TogglePolicy::Policy::WinGet);
         }
 
         AICLI_LOG(CLI, Info, << "Executing command: " << Name());
@@ -870,19 +875,55 @@ namespace AppInstaller::CLI
             ExecuteInternal(context);
         }
 
-        if (context.Args.Contains(Execution::Args::Type::OpenLogs))
-        {   
-            // TODO: Consider possibly adding functionality that if the context contains 'Execution::Args::Type::Log' to open the path provided for the log
-            // The above was omitted initially as a security precaution to ensure that user input to '--log' wouldn't be passed directly to ShellExecute
-            ShellExecute(NULL, NULL, Runtime::GetPathTo(Runtime::PathName::DefaultLogLocation).wstring().c_str(), NULL, NULL, SW_SHOWNORMAL);
-        }
-
-        if (context.Args.Contains(Execution::Args::Type::Wait))
+        // NOTE: Reboot logic will still run even if the context is terminated (not including unhandled exceptions).
+        if (context.Args.Contains(Execution::Args::Type::AllowReboot) &&
+            WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::RebootRequired))
         {
-            context.Reporter.PromptForEnter();
+            context.Reporter.Warn() << Resource::String::InitiatingReboot << std::endl;
+
+            if (context.Args.Contains(Execution::Args::Type::Wait))
+            {
+                context.Reporter.PromptForEnter();
+            }
+
+            if (WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::RegisterResume))
+            {
+                // RegisterResume context flag assumes we already wrote to the RunOnce registry.
+                // Since we are about to initiate a restart, this is no longer needed as a safety net.
+                Reboot::UnregisterRestartForWER();
+
+                context.ClearFlags(Execution::ContextFlag::RegisterResume);
+            }
+
+            context.ClearFlags(Execution::ContextFlag::RebootRequired);
+
+            if (!Reboot::InitiateReboot())
+            {
+                context.Reporter.Error() << Resource::String::FailedToInitiateReboot << std::endl;
+            }
+        }
+        else
+        {
+            if (context.Args.Contains(Execution::Args::Type::OpenLogs))
+            {
+                // TODO: Consider possibly adding functionality that if the context contains 'Execution::Args::Type::Log' to open the path provided for the log
+                // The above was omitted initially as a security precaution to ensure that user input to '--log' wouldn't be passed directly to ShellExecute
+                ShellExecute(NULL, NULL, Runtime::GetPathTo(Runtime::PathName::DefaultLogLocation).wstring().c_str(), NULL, NULL, SW_SHOWNORMAL);
+            }
+
+            if (context.Args.Contains(Execution::Args::Type::Wait))
+            {
+                context.Reporter.PromptForEnter();
+            }
         }
     }
 
+    void Command::Resume(Execution::Context& context) const
+    {
+        context.Reporter.Error() << Resource::String::CommandDoesNotSupportResumeMessage << std::endl;
+        AICLI_TERMINATE_CONTEXT(E_NOTIMPL);
+    }
+    
     void Command::SelectCurrentCommandIfUnrecognizedSubcommandFound(bool value)
     {
         m_selectCurrentCommandIfUnrecognizedSubcommandFound = value;

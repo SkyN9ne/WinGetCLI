@@ -17,3 +17,6 @@
 #include <memory>
 #include <mutex>
 #include <string>
+
+#include <winrt/Windows.Foundation.h>
+#include <winrt/Windows.Web.Http.h>

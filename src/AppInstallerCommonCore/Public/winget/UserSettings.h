@@ -70,7 +70,13 @@ namespace AppInstaller::Settings
         EFExperimentalCmd,
         EFExperimentalArg,
         EFDirectMSI,
-        EFWindowsFeature,
+        EFResume,
+        EFConfiguration03,
+        EFSideBySide,
+        EFConfigureSelfElevation,
+        EFStoreDownload,
+        EFIndexV2,
+        EFConfigureExport,
         // Telemetry
         TelemetryDisable,
         // Install behavior
@@ -87,12 +93,14 @@ namespace AppInstaller::Settings
         DisableInstallNotes,
         PortablePackageUserRoot,
         PortablePackageMachineRoot,
+        MaxResumes,
         // Network
         NetworkDownloader,
         NetworkDOProgressTimeoutInSeconds,
         NetworkWingetAlternateSourceURL,
         // Logging
         LoggingLevelPreference,
+        LoggingChannelPreference,
         // Uninstall behavior
         UninstallPurgePortablePackage,
         // Download behavior
@@ -141,12 +149,18 @@ namespace AppInstaller::Settings
         SETTINGMAPPING_SPECIALIZATION(Setting::ProgressBarVisualStyle, std::string, VisualStyle, VisualStyle::Accent, ".visual.progressBar"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::AnonymizePathForDisplay, bool, bool, true, ".visual.anonymizeDisplayedPaths"sv);
         // Source
-        SETTINGMAPPING_SPECIALIZATION_POLICY(Setting::AutoUpdateTimeInMinutes, uint32_t, std::chrono::minutes, 5min, ".source.autoUpdateIntervalInMinutes"sv, ValuePolicy::SourceAutoUpdateIntervalInMinutes);
+        SETTINGMAPPING_SPECIALIZATION_POLICY(Setting::AutoUpdateTimeInMinutes, uint32_t, std::chrono::minutes, 15min, ".source.autoUpdateIntervalInMinutes"sv, ValuePolicy::SourceAutoUpdateIntervalInMinutes);
         // Experimental
         SETTINGMAPPING_SPECIALIZATION(Setting::EFExperimentalCmd, bool, bool, false, ".experimentalFeatures.experimentalCmd"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::EFExperimentalArg, bool, bool, false, ".experimentalFeatures.experimentalArg"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::EFDirectMSI, bool, bool, false, ".experimentalFeatures.directMSI"sv);
-        SETTINGMAPPING_SPECIALIZATION(Setting::EFWindowsFeature, bool, bool, false, ".experimentalFeatures.windowsFeature"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::EFResume, bool, bool, false, ".experimentalFeatures.resume"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::EFConfiguration03, bool, bool, false, ".experimentalFeatures.configuration03"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::EFSideBySide, bool, bool, false, ".experimentalFeatures.sideBySide"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::EFConfigureSelfElevation, bool, bool, false, ".experimentalFeatures.configureSelfElevate"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::EFStoreDownload, bool, bool, false, ".experimentalFeatures.storeDownload"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::EFIndexV2, bool, bool, false, ".experimentalFeatures.indexV2"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::EFConfigureExport, bool, bool, false, ".experimentalFeatures.configureExport"sv);
         // Telemetry
         SETTINGMAPPING_SPECIALIZATION(Setting::TelemetryDisable, bool, bool, false, ".telemetry.disable"sv);
         // Install behavior
@@ -163,6 +177,7 @@ namespace AppInstaller::Settings
         SETTINGMAPPING_SPECIALIZATION(Setting::PortablePackageUserRoot, std::string, std::filesystem::path, {}, ".installBehavior.portablePackageUserRoot"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::PortablePackageMachineRoot, std::string, std::filesystem::path, {}, ".installBehavior.portablePackageMachineRoot"sv);
         SETTINGMAPPING_SPECIALIZATION(Setting::InstallDefaultRoot, std::string, std::filesystem::path, {}, ".installBehavior.defaultInstallRoot"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::MaxResumes, uint32_t, int, 3, ".installBehavior.maxResumes"sv);
         // Uninstall behavior
         SETTINGMAPPING_SPECIALIZATION(Setting::UninstallPurgePortablePackage, bool, bool, false, ".uninstallBehavior.purgePortablePackage"sv);
         // Download behavior
@@ -179,6 +194,7 @@ namespace AppInstaller::Settings
 #endif
         // Logging
         SETTINGMAPPING_SPECIALIZATION(Setting::LoggingLevelPreference, std::string, Logging::Level, Logging::Level::Info, ".logging.level"sv);
+        SETTINGMAPPING_SPECIALIZATION(Setting::LoggingChannelPreference, std::vector<std::string>, Logging::Channel, Logging::Channel::Defaults, ".logging.channels"sv);
         // Interactivity
         SETTINGMAPPING_SPECIALIZATION(Setting::InteractivityDisable, bool, bool, false, ".interactivity.disable"sv);
         

@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="TestSetup.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -30,26 +30,21 @@ namespace AppInstallerCLIE2ETests.Helpers
             this.PackagedContext = this.InitializeBoolParam(Constants.PackagedContextParameter, true);
             this.VerboseLogging = this.InitializeBoolParam(Constants.VerboseLoggingParameter, true);
             this.LooseFileRegistration = this.InitializeBoolParam(Constants.LooseFileRegistrationParameter);
-            this.InvokeCommandInDesktopPackage = this.InitializeBoolParam(Constants.InvokeCommandInDesktopPackageParameter);
             this.SkipTestSource = this.InitializeBoolParam(Constants.SkipTestSourceParameter, this.IsDefault);
 
             // For packaged context, default to AppExecutionAlias
             this.AICLIPath = this.InitializeStringParam(Constants.AICLIPathParameter, this.PackagedContext ? "WinGetDev.exe" : TestCommon.GetTestFile("winget.exe"));
             this.AICLIPackagePath = this.InitializeStringParam(Constants.AICLIPackagePathParameter, TestCommon.GetTestFile("AppInstallerCLIPackage.appxbundle"));
 
-            if (this.LooseFileRegistration && this.InvokeCommandInDesktopPackage)
-            {
-                this.AICLIPath = Path.Combine(this.AICLIPackagePath, this.AICLIPath);
-            }
-
             this.StaticFileRootPath = this.InitializeDirectoryParam(Constants.StaticFileRootPathParameter, Path.GetTempPath());
 
-            this.PowerShellModuleManifestPath = this.InitializeFileParam(Constants.PowerShellModulePathParameter);
             this.LocalServerCertPath = this.InitializeFileParam(Constants.LocalServerCertPathParameter);
             this.PackageCertificatePath = this.InitializeFileParam(Constants.PackageCertificatePathParameter);
             this.ExeInstallerPath = this.InitializeFileParam(Constants.ExeInstallerPathParameter);
             this.MsiInstallerPath = this.InitializeFileParam(Constants.MsiInstallerPathParameter);
             this.MsixInstallerPath = this.InitializeFileParam(Constants.MsixInstallerPathParameter);
+
+            this.ForcedExperimentalFeatures = this.InitializeStringArrayParam(Constants.ForcedExperimentalFeaturesParameter);
         }
 
         /// <summary>
@@ -89,11 +84,6 @@ namespace AppInstallerCLIE2ETests.Helpers
         public bool LooseFileRegistration { get; }
 
         /// <summary>
-        /// Gets a value indicating whether to invoke command in desktop package.
-        /// </summary>
-        public bool InvokeCommandInDesktopPackage { get; }
-
-        /// <summary>
         /// Gets the static file root path.
         /// </summary>
         public string StaticFileRootPath { get; }
@@ -129,11 +119,6 @@ namespace AppInstallerCLIE2ETests.Helpers
         public string PackageCertificatePath { get; }
 
         /// <summary>
-        /// Gets the PowerShell module path.
-        /// </summary>
-        public string PowerShellModuleManifestPath { get; }
-
-        /// <summary>
         /// Gets a value indicating whether to skip creating test source.
         /// </summary>
         public bool SkipTestSource { get; }
@@ -153,6 +138,11 @@ namespace AppInstallerCLIE2ETests.Helpers
                 return this.settingFilePath;
             }
         }
+
+        /// <summary>
+        /// Gets the experimental features that should be forcibly enabled.
+        /// </summary>
+        public string[] ForcedExperimentalFeatures { get; }
 
         /// <summary>
         /// Gets a value indicating whether is the default parameters.
@@ -177,6 +167,16 @@ namespace AppInstallerCLIE2ETests.Helpers
             }
 
             return TestContext.Parameters.Get(paramName);
+        }
+
+        private string[] InitializeStringArrayParam(string paramName, string[] defaultValue = null)
+        {
+            if (this.IsDefault || !TestContext.Parameters.Exists(paramName))
+            {
+                return defaultValue;
+            }
+
+            return TestContext.Parameters.Get(paramName).Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         }
 
         private string InitializeFileParam(string paramName, string defaultValue = null)

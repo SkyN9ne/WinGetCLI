@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "DependenciesTable.h"
-#include "SQLiteStatementBuilder.h"
+#include <winget/SQLiteStatementBuilder.h>
 #include "winget\DependenciesGraph.h"
 #include "Microsoft/Schema/1_0/OneToOneTable.h"
 #include "Microsoft/Schema/1_0/IdTable.h"
@@ -234,6 +234,14 @@ namespace AppInstaller::Repository::Microsoft::Schema::V1_4
         createIndexByPackageIdBuilder.Execute(connection);
 
         savepoint.Commit();
+    }
+
+    void DependenciesTable::Drop(SQLite::Connection& connection)
+    {
+        SQLite::Builder::StatementBuilder dropTableBuilder;
+        dropTableBuilder.DropTableIfExists(s_DependenciesTable_Table_Name);
+
+        dropTableBuilder.Execute(connection);
     }
 
     void DependenciesTable::AddDependencies(SQLite::Connection& connection, const Manifest::Manifest& manifest, SQLite::rowid_t manifestRowId)

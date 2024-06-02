@@ -16,7 +16,7 @@ The `source` settings involve configuration to the WinGet source.
     "source": {
         "autoUpdateIntervalInMinutes": 3
     },
-``` 
+```
 
 ### autoUpdateIntervalInMinutes
 
@@ -33,7 +33,7 @@ The `visual` settings involve visual elements that are displayed by WinGet
 
 ### progressBar
 
-Color of the progress bar that WinGet displays when not specified by arguments. 
+Color of the progress bar that WinGet displays when not specified by arguments.
 
 - accent (default)
 - retro
@@ -194,14 +194,31 @@ If set to true, the `telemetry.disable` setting will prevent any event from bein
 
 ## Logging
 
-The `logging` settings control the level of detail in log files. `--verbose-logs` will override this setting and always creates a verbose log.
-Defaults to `info` if value is not set or is invalid
+The `logging` settings control the level of detail in log files.
 
 ### level
 
+ `--verbose-logs` will override this setting and always creates a verbose log.
+Defaults to `info` if value is not set or is invalid.
+
 ```json
     "logging": {
-        "level": ["verbose", "info", "warning", "error", "critical"]
+        "level": "verbose" | "info" | "warning" | "error" | "critical"
+    },
+```
+
+### channels
+
+The valid values in this array are defined in the function `GetChannelFromName` in the [logging code](../src/AppInstallerSharedLib/AppInstallerLogging.cpp).  These align with the ***channel identifier*** found in the log files.  For example, ***`CORE`*** in:
+```
+2023-12-06 19:17:07.988 [CORE] WinGet, version [1.7.0-preview], activity [{24A91EA8-46BE-47A1-B65C-CEBCE90B8675}]
+```
+
+In addition, there are special values that cover multiple channels.  `default` is the default set of channels, while `all` is all of the channels.  Invalid values are ignored.
+
+```json
+    "logging": {
+        "channels": ["default"]
     },
 ```
 
@@ -215,7 +232,7 @@ The `downloader` setting controls which code is used when downloading packages. 
 `wininet` uses the [WinINet](https://docs.microsoft.com/windows/win32/wininet/about-wininet) APIs, while `do` uses the
 [Delivery Optimization](https://support.microsoft.com/windows/delivery-optimization-in-windows-10-0656e53c-15f2-90de-a87a-a2172c94cf6d) service.
 
-The `doProgressTimeoutInSeconds` setting updates the number of seconds to wait without progress before fallback. The default number of seconds is 60, minimum is 1 and the maximum is 600. 
+The `doProgressTimeoutInSeconds` setting updates the number of seconds to wait without progress before fallback. The default number of seconds is 60, minimum is 1 and the maximum is 600.
 
 ```json
    "network": {
@@ -240,7 +257,7 @@ If set to true, the `interactivity.disable` setting will prevent any interactive
 
 ## Experimental Features
 
-To allow work to be done and distributed to early adopters for feedback, settings can be used to enable "experimental" features. 
+To allow work to be done and distributed to early adopters for feedback, settings can be used to enable "experimental" features.
 
 The `experimentalFeatures` settings involve the configuration of these "experimental" features. Individual features can be enabled under this node. The example below shows sample experimental features.
 
@@ -253,8 +270,8 @@ The `experimentalFeatures` settings involve the configuration of these "experime
 
 ### directMSI
 
-This feature enables the Windows Package Manager to directly install MSI packages with the MSI APIs rather than through msiexec. 
-Note that when silent installation is used this is already in affect, as MSI packages that require elevation will fail in that scenario without it. 
+This feature enables the Windows Package Manager to directly install MSI packages with the MSI APIs rather than through msiexec.
+Note that when silent installation is used this is already in affect, as MSI packages that require elevation will fail in that scenario without it.
 You can enable the feature as shown below.
 
 ```json
@@ -263,24 +280,85 @@ You can enable the feature as shown below.
    },
 ```
 
-### configuration
+### resume
 
-This feature enables the configuration commands. These commands allow configuring the system into a desired state.
+This feature enables support for some commands to resume.
 You can enable the feature as shown below.
 
 ```json
    "experimentalFeatures": {
-       "configuration": true
+       "resume": true
    },
 ```
 
-### windowsFeature
+### configuration03
 
-This feature enables the ability to enable Windows Feature dependencies during installation.
+This feature enables the configuration schema 0.3.
 You can enable the feature as shown below.
 
 ```json
    "experimentalFeatures": {
-       "windowsFeature": true
+       "configuration03": true
+   },
+```
+
+### sideBySide
+
+This feature enables experimental improvements for supporting multiple instances of a package being installed on a system.
+You can enable the feature as shown below.
+
+```json
+   "experimentalFeatures": {
+       "sideBySide": true
+   },
+```
+
+### configureSelfElevate
+
+This feature enables configure commands to request elevation as needed.
+Currently, this means that properly attributed configuration units (and only those) will be run through an elevated process while the rest are run from the current context.
+
+```json
+   "experimentalFeatures": {
+       "configureSelfElevate": true
+   },
+```
+
+### storeDownload
+
+This feature enables packages to be downloaded from the Microsoft Store.
+You can enable the feature as shown below.
+
+```json
+   "experimentalFeatures": {
+       "storeDownload": true
+   },
+```
+
+### configureExport
+
+This feature enables exporting a configuration file.
+You can enable the feature as shown below.
+
+```json
+   "experimentalFeatures": {
+       "configureExport": true
+   },
+```
+
+### indexV2
+
+This feature enables the `winget` source to retrieve the V2 index, which is significantly smaller.
+Regardless of the state of this feature, if the index on the machine contains a V2 index, it will be used.
+If there is a bug with the V2 index stopping the `winget` CLI from working, disable the feature in your settings file and run this command:
+```
+> winget uninstall -s msstore Microsoft.Winget.Source_8wekyb3d8bbwe
+```
+
+You can enable the feature as shown below.
+
+```json
+   "experimentalFeatures": {
+       "indexV2": true
    },
 ```

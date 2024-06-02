@@ -7,9 +7,23 @@
    The tests require the localhost web server to be running and serving the test data.
    'Invoke-Pester' should be called in an admin PowerShell window.
 #>
+[CmdletBinding()]
+param(
+    # Whether to use production or developement targets.
+    [switch]$TargetProduction
+)
 
 BeforeAll {
-    $settingsFilePath = (ConvertFrom-Json (wingetdev.exe settings export)).userSettingsFile
+    if ($TargetProduction)
+    {
+        $wingetExeName = "winget.exe"
+    }
+    else
+    {
+        $wingetExeName = "wingetdev.exe"
+    }
+
+    $settingsFilePath = (ConvertFrom-Json (& $wingetExeName settings export)).userSettingsFile
 
     $deviceGroupPolicyRoot = "HKLM:\Software\Policies\Microsoft\Windows"
     $wingetPolicyKeyName = "AppInstaller"
@@ -28,19 +42,28 @@ BeforeAll {
             Get-WinGetSource -Name 'TestSource'
         }
         catch {
-            Add-WinGetSource -Name 'TestSource' -Arg 'https://localhost:5001/TestKit/'
+            # TODO: Add-WinGetSource does not support setting trust level yet.
+            # Add-WinGetSource -Name 'TestSource' -Arg 'https://localhost:5001/TestKit/'
+            $sourceAddCommand = "${wingetExeName} source add TestSource https://localhost:5001/TestKit/ --trust-level trusted"
+            Invoke-Expression -Command $sourceAddCommand
         }
     }
 
+    # This is a workaround to an issue where the server takes longer than expected to terminate when
+    # running from PowerShell. This can cause other E2E tests to fail when attempting to reset the test source.
     function RemoveTestSource {
         try {
-            Get-WinGetSource -Name 'TestSource'
+            # Source Remove requires admin privileges, this will only execute successfully in an elevated PowerShell.
+            $testSource = Get-WinGetSource | Where-Object -Property 'Name' -eq 'TestSource'
+            if ($null -ne $testSource)
+            {
+                # Source Remove requires admin privileges
+                Remove-WinGetSource -Name 'TestSource'
+            }
         }
         catch {
-            # Source Remove requires admin privileges, this will only execute successfully in an elevated PowerShell.
-            # This is a workaround to an issue where the server takes longer than expected to terminate when
-            # running from PowerShell. This can cause other E2E tests to fail when attempting to reset the test source.
-            Start-Process -FilePath "wingetdev" -ArgumentList "source remove TestSource"
+            # Non-admin
+            Start-Process -FilePath $wingetExeName -ArgumentList "source remove TestSource"
         }
     }
 
@@ -72,6 +95,36 @@ BeforeAll {
         {
             Remove-ItemProperty -Path $wingetGroupPolicyRegistryRoot -Name *
         }
+    }
+
+    function WaitForWindowsPackageManagerServer([bool]$force = $false)
+    {
+        $processes = Get-Process | Where-Object { $_.Name -eq "WindowsPackageManagerServer" }
+        foreach ($p in $processes)
+        {
+            if ($force)
+            {
+                Stop-Process $p
+            }
+
+            $timeout = 300
+            $secondsToWait = 5
+            $time = 0
+            while ($p.HasExited -eq $false)
+            {
+                $time += $secondsToWait
+                if ($time -ge $timeout )
+                {
+                    throw "Timeout waiting for $($p.Id) to exit"
+                }
+                Start-Sleep -Seconds 5
+            }
+        }
+    }
+
+    function GetRandomTestDirectory()
+    {
+        return Join-Path -Path $env:Temp -ChildPath "WingetPwshTest-$(New-Guid)"
     }
 }
 
@@ -171,6 +224,9 @@ Describe 'Install|Update|Uninstall-WinGetPackage' {
         $result = Install-WinGetPackage -Id AppInstallerTest.TestExeInstaller -Version '1.0.0.0'
 
         $result | Should -Not -BeNullOrEmpty -ErrorAction Stop
+        $result.Id | Should -Be "AppInstallerTest.TestExeInstaller"
+        $result.Name | Should -Be "TestExeInstaller"
+        $result.Source | Should -Be "TestSource"
         $result.InstallerErrorCode | Should -Be 0
         $result.Status | Should -Be 'Ok'
         $result.RebootRequired | Should -Be 'False'
@@ -180,6 +236,9 @@ Describe 'Install|Update|Uninstall-WinGetPackage' {
         $result = Install-WinGetPackage -Name TestPortableExe -Version '2.0.0.0' -MatchOption Equals
 
         $result | Should -Not -BeNullOrEmpty -ErrorAction Stop
+        $result.Id | Should -Be "AppInstallerTest.TestPortableExe"
+        $result.Name | Should -Be "TestPortableExe"
+        $result.Source | Should -Be "TestSource"
         $result.InstallerErrorCode | Should -Be 0
         $result.Status | Should -Be 'Ok'
         $result.RebootRequired | Should -Be 'False'
@@ -189,6 +248,9 @@ Describe 'Install|Update|Uninstall-WinGetPackage' {
         $result = Update-WinGetPackage -Id AppInstallerTest.TestExeInstaller
 
         $result | Should -Not -BeNullOrEmpty -ErrorAction Stop
+        $result.Id | Should -Be "AppInstallerTest.TestExeInstaller"
+        $result.Name | Should -Be "TestExeInstaller"
+        $result.Source | Should -Be "TestSource"
         $result.InstallerErrorCode | Should -Be 0
         $result.Status | Should -Be 'Ok'
         $result.RebootRequired | Should -Be 'False'
@@ -198,6 +260,9 @@ Describe 'Install|Update|Uninstall-WinGetPackage' {
         $result = Update-WinGetPackage -Name TestPortableExe
 
         $result | Should -Not -BeNullOrEmpty -ErrorAction Stop
+        $result.Id | Should -Be "AppInstallerTest.TestPortableExe"
+        $result.Name | Should -Be "TestPortableExe"
+        $result.Source | Should -Be "TestSource"
         $result.InstallerErrorCode | Should -Be 0
         $result.Status | Should -Be 'Ok'
         $result.RebootRequired | Should -Be 'False'
@@ -207,6 +272,9 @@ Describe 'Install|Update|Uninstall-WinGetPackage' {
         $result = Uninstall-WinGetPackage -Id AppInstallerTest.TestExeInstaller
 
         $result | Should -Not -BeNullOrEmpty -ErrorAction Stop
+        $result.Id | Should -Be "AppInstallerTest.TestExeInstaller"
+        $result.Name | Should -Be "TestExeInstaller"
+        $result.Source | Should -Be "TestSource"
         $result.UninstallerErrorCode | Should -Be 0
         $result.Status | Should -Be 'Ok'
         $result.RebootRequired | Should -Be 'False'
@@ -216,6 +284,9 @@ Describe 'Install|Update|Uninstall-WinGetPackage' {
         $result = Uninstall-WinGetPackage -Name TestPortableExe
 
         $result | Should -Not -BeNullOrEmpty -ErrorAction Stop
+        $result.Id | Should -Be "AppInstallerTest.TestPortableExe"
+        $result.Name | Should -Be "TestPortableExe"
+        $result.Source | Should -Be "TestSource"
         $result.UninstallerErrorCode | Should -Be 0
         $result.Status | Should -Be 'Ok'
         $result.RebootRequired | Should -Be 'False'
@@ -247,6 +318,9 @@ Describe 'Get-WinGetPackage' {
         $result = Install-WinGetPackage -Id AppInstallerTest.TestExeInstaller -Version '1.0.0.0'
 
         $result | Should -Not -BeNullOrEmpty -ErrorAction Stop
+        $result.Id | Should -Be "AppInstallerTest.TestExeInstaller"
+        $result.Name | Should -Be "TestExeInstaller"
+        $result.Source | Should -Be "TestSource"
         $result.InstallerErrorCode | Should -Be 0
         $result.Status | Should -Be 'Ok'
         $result.RebootRequired | Should -Be 'False'
@@ -282,6 +356,75 @@ Describe 'Get-WinGetPackage' {
             Uninstall-WinGetPackage -Id AppInstallerTest.TestExeInstaller 
         } 
    }
+}
+
+Describe 'Export-WinGetPackage' {
+
+    BeforeAll {
+        AddTestSource
+    }
+
+    It 'Download by Id' {
+        $testDirectory = GetRandomTestDirectory
+        $result = Export-WinGetPackage -Id AppInstallerTest.TestExeInstaller -Version '1.0.0.0' -DownloadDirectory $testDirectory
+        
+        $result | Should -Not -BeNullOrEmpty
+        $result.Id | Should -Be "AppInstallerTest.TestExeInstaller"
+        $result.Name | Should -Be "TestExeInstaller"
+        $result.Source | Should -Be "TestSource"
+        $result.Status | Should -Be 'Ok'
+
+        # Download directory should be created and have exactly two files (installer and manifest file).
+        Test-Path -Path $testDirectory | Should -Be $true
+        (Get-ChildItem -Path $testDirectory -Force | Measure-Object).Count | Should -Be 2
+    }
+
+    It 'Download by Locale' {
+        $testDirectory = GetRandomTestDirectory
+        $result = Export-WinGetPackage -Id AppInstallerTest.TestMultipleInstallers -Locale 'zh-CN' -DownloadDirectory $testDirectory
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.Id | Should -Be "AppInstallerTest.TestMultipleInstallers"
+        $result.Name | Should -Be "TestMultipleInstallers"
+        $result.Source | Should -Be "TestSource"
+        $result.Status | Should -Be 'Ok'
+
+        Test-Path -Path $testDirectory | Should -Be $true
+        (Get-ChildItem -Path $testDirectory -Force | Measure-Object).Count | Should -Be 2
+    }
+
+    It 'Download by InstallerType' {
+        $testDirectory = GetRandomTestDirectory
+        $result = Export-WinGetPackage -Id AppInstallerTest.TestMultipleInstallers -InstallerType 'msi' -DownloadDirectory $testDirectory
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.Id | Should -Be "AppInstallerTest.TestMultipleInstallers"
+        $result.Name | Should -Be "TestMultipleInstallers"
+        $result.Source | Should -Be "TestSource"
+        $result.Status | Should -Be 'Ok'
+
+        Test-Path -Path $testDirectory | Should -Be $true
+        (Get-ChildItem -Path $testDirectory -Force | Measure-Object).Count | Should -Be 2
+    }
+
+    It 'Download by InstallerType that does not exist' {
+        $testDirectory = GetRandomTestDirectory
+        $result = Export-WinGetPackage -Id AppInstallerTest.TestExeInstaller -Version '1.0.0.0' -InstallerType 'zip' -DownloadDirectory $testDirectory
+
+        $result | Should -Not -BeNullOrEmpty
+        $result.Id | Should -Be "AppInstallerTest.TestExeInstaller"
+        $result.Name | Should -Be "TestExeInstaller"
+        $result.Source | Should -Be "TestSource"
+        $result.Status | Should -Be 'NoApplicableInstallers'
+        $result.ExtendedErrorCode | Should -Not -BeNullOrEmpty
+        Test-Path -Path $testDirectory | Should -Be $false
+    }
+
+    AfterEach {
+        if (Test-Path $testDirectory) {
+            Remove-Item $testDirectory -Force -Recurse
+        }
+    }
 }
 
 Describe 'Get-WinGetUserSettings' {
@@ -521,7 +664,7 @@ Describe 'Test-GroupPolicies' {
         CreatePolicyKeyIfNotExists
     }
 
-    It "Disable WinGetPolicy and run Get-WinGetSources" {
+    It "Disable WinGetPolicy and run Get-WinGetVersion" {
         $policyKeyValueName =  "EnableAppInstaller"
 
         Set-ItemProperty -Path $wingetGroupPolicyRegistryRoot -Name $policyKeyValueName -Value 0
@@ -529,12 +672,12 @@ Describe 'Test-GroupPolicies' {
         $registryKey | Should -Not -BeNullOrEmpty
         $registryKey.EnableAppInstaller | Should -Be 0
 
-        { Get-WinGetSource } | Should -Throw "This operation is disabled by Group Policy : Enable Windows Package Manager"
+        { Get-WinGetVersion } | Should -Throw "This operation is disabled by Group Policy : Enable Windows Package Manager"
 
         CleanupGroupPolicies
     }
 
-    It "Disable EnableWindowsPackageManagerCommandLineInterfaces Policy and run Get-WinGetSources" {
+    It "Disable EnableWindowsPackageManagerCommandLineInterfaces Policy and run Get-WinGetVersion" {
        $policyKeyValueName =  "EnableWindowsPackageManagerCommandLineInterfaces"
 
         Set-ItemProperty -Path $wingetGroupPolicyRegistryRoot -Name $policyKeyValueName -Value 0
@@ -542,7 +685,7 @@ Describe 'Test-GroupPolicies' {
         $registryKey | Should -Not -BeNullOrEmpty
         $registryKey.EnableWindowsPackageManagerCommandLineInterfaces | Should -Be 0
 
-        { Get-WinGetSource } | Should -Throw "This operation is disabled by Group Policy : Enable Windows Package Manager command line interfaces"
+        { Get-WinGetVersion } | Should -Throw "This operation is disabled by Group Policy : Enable Windows Package Manager command line interfaces"
 
         CleanupGroupPolicies
     }
@@ -550,6 +693,72 @@ Describe 'Test-GroupPolicies' {
     AfterAll {
         CleanupGroupPolicies
         CleanupGroupPolicyKeyIfExists
+    }
+}
+
+Describe 'WindowsPackageManagerServer' -Skip:($PSEdition -eq "Desktop") {
+
+    BeforeEach {
+        AddTestSource
+        WaitForWindowsPackageManagerServer $true
+    }
+
+    # When WindowsPackageManagerServer dies, we should not fail.
+    It 'Forced termination' {
+        $source = Get-WinGetSource -Name 'TestSource'
+        $source | Should -Not -BeNullOrEmpty
+        $source.Name | Should -Be 'TestSource'
+
+        $process = Get-Process -Name "WindowsPackageManagerServer"
+        $process | Should -Not -BeNullOrEmpty
+
+        # At least one is running.
+        $process | Where-Object { $_.HasExited -eq $false } | Should -Not -BeNullOrEmpty
+
+        WaitForWindowsPackageManagerServer $true
+
+        # From the ones we got, at least one exited
+        $process | Where-Object { $_.HasExited -eq $true } | Should -Not -BeNullOrEmpty
+
+        $source2 = Get-WinGetSource -Name 'TestSource'
+        $source2 | Should -Not -BeNullOrEmpty
+        $source2.Name | Should -Be 'TestSource'
+
+        $process2 = Get-Process -Name "WindowsPackageManagerServer"
+        $process2 | Should -Not -BeNullOrEmpty
+        $process2.Id | Should -Not -Be $process.Id
+    }
+
+    # The Microsoft.WinGet.Client has static proxy objects of WindowsPackageManagerServer
+    # This tests does all the Microsoft.WinGet.Client calls in a different pwsh instance.
+    It 'Graceful termination' {
+        $typeTable = [System.Management.Automation.Runspaces.TypeTable]::LoadDefaultTypeFiles()
+        $oopRunspace = [System.Management.Automation.Runspaces.RunspaceFactory]::CreateOutOfProcessRunspace($typeTable)
+        $oopRunspace.Open()
+        $oopPwsh = [PowerShell]::Create()
+        $oopPwsh.Runspace = $oopRunspace
+        $oopPwshPid = $oopPwsh.AddScript("`$PID").Invoke()
+        $oopPwshProcess = Get-Process -Id $oopPwshPid
+        $oopPwshProcess.HasExited | Should -Be $false
+
+        $source = $oopPwsh.AddScript("Get-WinGetSource -Name TestSource").Invoke()
+        $source | Should -Not -BeNullOrEmpty
+        $source.Name | Should -Be 'TestSource'
+
+        $wingetProcess = Get-Process -Name "WindowsPackageManagerServer"
+        $wingetProcess | Should -Not -BeNullOrEmpty
+
+        # At least one is running.
+        $wingetProcess | Where-Object { $_.HasExited -eq $false } | Should -Not -BeNullOrEmpty
+
+        $oopRunspace.Close()
+
+        Start-Sleep -Seconds 30
+        $oopPwshProcess.HasExited | Should -Be $true
+
+        # From the ones we got, at least one exited
+        WaitForWindowsPackageManagerServer
+        $wingetProcess | Where-Object { $_.HasExited -eq $true } | Should -Not -BeNullOrEmpty
     }
 }
 

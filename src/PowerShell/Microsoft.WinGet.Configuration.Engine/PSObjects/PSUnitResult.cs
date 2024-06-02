@@ -8,7 +8,7 @@ namespace Microsoft.WinGet.Configuration.Engine.PSObjects
 {
     using Microsoft.Management.Configuration;
     using Microsoft.WinGet.Configuration.Engine.Exceptions;
-    using Microsoft.WinGet.Configuration.Engine.Resources;
+    using Microsoft.WinGet.Resources;
 
     /// <summary>
     /// Unit result.
@@ -101,6 +101,10 @@ namespace Microsoft.WinGet.Configuration.Engine.PSObjects
                     return Resources.ConfigurationUnitManuallySkipped;
                 case ErrorCodes.WingetConfigErrorDependencyUnsatisfied:
                     return Resources.ConfigurationUnitNotRunDueToDependency;
+                case ErrorCodes.WinGetConfigUnitSettingConfigRoot:
+                    return Resources.WinGetConfigUnitSettingConfigRoot;
+                case ErrorCodes.WinGetConfigUnitImportModuleAdmin:
+                    return Resources.WinGetConfigUnitImportModuleAdmin;
             }
 
             switch (resultInfo.ResultSource)

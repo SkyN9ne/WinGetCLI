@@ -7,6 +7,11 @@
    'Invoke-Pester' should be called in an admin PowerShell window.
    Requires local test repo to be setup.
 #>
+[CmdletBinding()]
+param(
+    # The location of the test data
+    [string]$ConfigurationTestDataPath
+)
 
 BeforeAll {
     $env:POWERSHELL_TELEMETRY_OPTOUT = "true"
@@ -47,9 +52,14 @@ BeforeAll {
         }
     }
 
+    if ([System.String]::IsNullOrEmpty($ConfigurationTestDataPath))
+    {
+        $ConfigurationTestDataPath = (Join-Path $PSScriptRoot "..\..\AppInstallerCLIE2ETests\TestData\Configuration\")
+    }
+
     function GetConfigTestDataPath()
     {
-        return Join-Path $PSScriptRoot "..\..\AppInstallerCLIE2ETests\TestData\Configuration\"
+        return $ConfigurationTestDataPath
     }
 
     function DeleteConfigTxtFiles()
@@ -302,7 +312,7 @@ Describe 'Get configuration' {
 
     It 'Missing property' {
         $testFile = GetConfigTestDataFile "NotConfig.yml"
-        { Get-WinGetConfiguration -File $testFile } | Should -Throw "*0x8A15C00E*properties*missing*"
+        { Get-WinGetConfiguration -File $testFile } | Should -Throw '*0x8A15C00E*$schema*missing*'
     }
 
     It 'Missing configurationVersion' {

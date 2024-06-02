@@ -7,6 +7,7 @@
 namespace AppInstallerCLIE2ETests
 {
     using AppInstallerCLIE2ETests.Helpers;
+    using Microsoft.VisualBasic;
     using NUnit.Framework;
 
     /// <summary>
@@ -14,6 +15,15 @@ namespace AppInstallerCLIE2ETests
     /// </summary>
     public class ConfigureShowCommand
     {
+        /// <summary>
+        /// One time teardown.
+        /// </summary>
+        [OneTimeTearDown]
+        public void OneTimeTearDown()
+        {
+            WinGetSettingsHelper.ConfigureFeature("configuration03", false);
+        }
+
         /// <summary>
         /// Simple test to confirm that a resource without a module specified can be discovered in the PSGallery.
         /// </summary>
@@ -61,6 +71,67 @@ namespace AppInstallerCLIE2ETests
             var result = TestCommon.RunAICLICommand("configure show", args);
             Assert.AreEqual(0, result.ExitCode);
             Assert.True(result.StdOut.Contains(Constants.LocalModuleDescriptor));
+        }
+
+        /// <summary>
+        /// A schema 0.3 config file is not allowed without the experimental feature.
+        /// </summary>
+        [Test]
+        public void ShowDetails_Schema0_3_Fails()
+        {
+            var result = TestCommon.RunAICLICommand("configure show", TestCommon.GetTestDataFile("Configuration\\ShowDetails_TestRepo_0_3.yml"));
+            Assert.AreEqual(Constants.ErrorCode.ERROR_EXPERIMENTAL_FEATURE_DISABLED, result.ExitCode);
+        }
+
+        /// <summary>
+        /// A schema 0.3 config file is allowed with the experimental feature.
+        /// </summary>
+        [Test]
+        public void ShowDetails_Schema0_3_Succeeds()
+        {
+            TestCommon.EnsureModuleState(Constants.SimpleTestModuleName, present: false);
+            WinGetSettingsHelper.ConfigureFeature("configuration03", true);
+
+            var result = TestCommon.RunAICLICommand("configure show", TestCommon.GetTestDataFile("Configuration\\ShowDetails_TestRepo_0_3.yml"));
+            Assert.AreEqual(0, result.ExitCode);
+            Assert.True(result.StdOut.Contains(Constants.TestRepoName));
+        }
+
+        /// <summary>
+        /// A schema 0.3 config file with parameters is blocked.
+        /// </summary>
+        [Test]
+        public void ShowDetails_Schema0_3_Parameters()
+        {
+            WinGetSettingsHelper.ConfigureFeature("configuration03", true);
+
+            var result = TestCommon.RunAICLICommand("configure show", TestCommon.GetTestDataFile("Configuration\\WithParameters_0_3.yml"));
+            Assert.AreEqual(0, result.ExitCode);
+            Assert.True(result.StdOut.Contains("Failed to get detailed information about the configuration."));
+        }
+
+        /// <summary>
+        /// Simple test to show details from a https configuration file.
+        /// </summary>
+        [Test]
+        public void ShowDetailsFromHttpsConfigurationFile()
+        {
+            var result = TestCommon.RunAICLICommand("configure show", $"{Constants.TestSourceUrl}/TestData/Configuration/ShowDetails_TestRepo.yml --verbose");
+            Assert.AreEqual(0, result.ExitCode);
+            Assert.True(result.StdOut.Contains(Constants.TestRepoName));
+        }
+
+        /// <summary>
+        /// This test ensures that there is not significant overflow from large strings in the configuration file.
+        /// </summary>
+        [Test]
+        public void ShowTruncatedDetailsAndFileContent()
+        {
+            var result = TestCommon.RunAICLICommand("configure show", $"{TestCommon.GetTestDataFile("Configuration\\LargeContentStrings.yml")} --verbose");
+            Assert.AreEqual(0, result.ExitCode);
+            Assert.True(result.StdOut.Contains("<this value has been truncated; inspect the file contents for the complete text>"));
+            Assert.True(result.StdOut.Contains("Some of the data present in the configuration file was truncated for this output; inspect the file contents for the complete content."));
+            Assert.False(result.StdOut.Contains("Line5"));
         }
     }
 }

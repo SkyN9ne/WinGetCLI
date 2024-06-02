@@ -25,6 +25,8 @@
 #include "TestCommand.h"
 #include "DownloadCommand.h"
 #include "ErrorCommand.h"
+#include "ResumeCommand.h"
+#include "RepairCommand.h"
 
 #include "Resources.h"
 #include "TableOutput.h"
@@ -122,12 +124,20 @@ namespace AppInstaller::CLI
             Execution::TableOutput<2> adminSettingsTable{ context.Reporter, { Resource::String::AdminSettingHeader, Resource::String::StateHeader } };
 
             // Output the admin settings.
-            for (const auto& setting : Settings::GetAllAdminSettings())
+            for (const auto& setting : Settings::GetAllBoolAdminSettings())
             {
                 adminSettingsTable.OutputLine({
                     std::string{ AdminSettingToString(setting)},
                     Resource::LocString{ IsAdminSettingEnabled(setting) ? Resource::String::StateEnabled : Resource::String::StateDisabled }
                 });
+            }
+            for (const auto& setting : Settings::GetAllStringAdminSettings())
+            {
+                auto settingValue = GetAdminSetting(setting);
+                adminSettingsTable.OutputLine({
+                    std::string{ AdminSettingToString(setting)},
+                    settingValue ? Utility::LocIndString{ settingValue.value() } : Resource::LocString{ Resource::String::StateDisabled }
+                    });
             }
             adminSettingsTable.Complete();
         }
@@ -182,6 +192,8 @@ namespace AppInstaller::CLI
             std::make_unique<ConfigureCommand>(FullName()),
             std::make_unique<DownloadCommand>(FullName()),
             std::make_unique<ErrorCommand>(FullName()),
+            std::make_unique<ResumeCommand>(FullName()),
+            std::make_unique<RepairCommand>(FullName()),
 #if _DEBUG
             std::make_unique<DebugCommand>(FullName()),
 #endif

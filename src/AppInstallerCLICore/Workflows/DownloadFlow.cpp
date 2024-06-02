@@ -2,18 +2,22 @@
 // Licensed under the MIT License.
 #include "pch.h"
 #include "DownloadFlow.h"
+#include "MSStoreInstallerHandler.h"
 #include <winget/Filesystem.h>
 #include <AppInstallerDownloader.h>
 #include <AppInstallerRuntime.h>
 #include <AppInstallerMsixInfo.h>
 #include <winget/AdminSettings.h>
+#include <winget/GroupPolicy.h>
 #include <winget/ManifestYamlWriter.h>
+#include <winget/NetworkSettings.h>
 
 namespace AppInstaller::CLI::Workflow
 {
     using namespace AppInstaller::Manifest;
     using namespace AppInstaller::Repository;
     using namespace AppInstaller::Utility;
+    using namespace AppInstaller::Settings;
     using namespace std::string_view_literals;
 
     namespace
@@ -142,6 +146,16 @@ namespace AppInstaller::CLI::Workflow
             try
             {
                 std::filesystem::remove(path);
+
+                // It is assumed that the parent of the installer path will always be a directory
+                // If it isn't, then something went severely wrong. However, we will check that
+                // it is a directory here just to be safe. If it is an empty directory, remove it.
+
+                if (std::filesystem::is_directory(path.parent_path()) &&
+                    std::filesystem::is_empty(path.parent_path()))
+                {
+                    std::filesystem::remove(path.parent_path());
+                }
             }
             catch (const std::exception& e)
             {
@@ -211,27 +225,31 @@ namespace AppInstaller::CLI::Workflow
                 context << DownloadInstallerFile;
                 break;
             case InstallerTypeEnum::Msix:
-                if (installer.SignatureSha256.empty() || installerDownloadOnly)
+                // If the signature hash is provided in the manifest and we are doing an install,
+                // we can just verify signature hash without a full download and do a streaming install.
+                // Even if we have the signature hash, we still do a full download if InstallerDownloadOnly
+                // flag is set, or if we need to use a proxy (as deployment APIs won't use proxy for us).
+                if (installer.SignatureSha256.empty()
+                    || installerDownloadOnly
+                    || Network().GetProxyUri())
                 {
-                    // If InstallerDownloadOnly flag is set, always download the installer file.
                     context << DownloadInstallerFile;
                 }
                 else
                 {
-                    // Signature hash provided. No download needed. Just verify signature hash.
                     context << GetMsixSignatureHash;
                 }
                 break;
             case InstallerTypeEnum::MSStore:
                 if (installerDownloadOnly)
                 {
-                    THROW_HR(HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED));
+                    context <<
+                        EnsureFeatureEnabled(Settings::ExperimentalFeature::Feature::StoreDownload) <<
+                        MSStoreDownload <<
+                        ExportManifest;
                 }
-                else
-                {
-                    // Nothing to do here
-                    return;
-                }
+
+                return;
             default:
                 THROW_HR(HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED));
             }
@@ -307,7 +325,8 @@ namespace AppInstaller::CLI::Workflow
 
         std::optional<std::vector<BYTE>> hash;
 
-        const int MaxRetryCount = 2;
+        constexpr int MaxRetryCount = 2;
+        constexpr std::chrono::seconds maximumWaitTimeAllowed = 60s;
         for (int retryCount = 0; retryCount < MaxRetryCount; ++retryCount)
         {
             bool success = false;
@@ -322,6 +341,31 @@ namespace AppInstaller::CLI::Workflow
                     downloadInfo));
 
                 success = true;
+            }
+            catch (const ServiceUnavailableException& sue)
+            {
+                if (retryCount < MaxRetryCount - 1)
+                {
+                    auto waitSecondsForRetry = sue.RetryAfter();
+                    if (waitSecondsForRetry > maximumWaitTimeAllowed)
+                    {
+                        throw;
+                    }
+
+                    bool waitCompleted = context.Reporter.ExecuteWithProgress([&waitSecondsForRetry](IProgressCallback& progress)
+                        {
+                            return ProgressCallback::Wait(progress, waitSecondsForRetry);
+                        });
+
+                    if (!waitCompleted)
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    throw;
+                }
             }
             catch (...)
             {
@@ -360,6 +404,7 @@ namespace AppInstaller::CLI::Workflow
         {
             const auto& installer = context.Get<Execution::Data::Installer>().value();
 
+            // Signature hash is only used for streaming installs, which don't use proxy
             Msix::MsixInfo msixInfo(installer.Url);
             auto signatureHash = msixInfo.GetSignatureHash();
 
@@ -396,7 +441,7 @@ namespace AppInstaller::CLI::Workflow
             {
                 context.Reporter.Error() << Resource::String::InstallerHashMismatchAdminBlock << std::endl;
             }
-            else if (!Settings::IsAdminSettingEnabled(Settings::AdminSetting::InstallerHashOverride))
+            else if (!Settings::IsAdminSettingEnabled(Settings::BoolAdminSetting::InstallerHashOverride))
             {
                 context.Reporter.Error() << Resource::String::InstallerHashMismatchError << std::endl;
             }
@@ -430,14 +475,20 @@ namespace AppInstaller::CLI::Workflow
 
     void UpdateInstallerFileMotwIfApplicable(Execution::Context& context)
     {
+        // An initial MotW is always set to URLZONE_INTERNET at the time the file is downloaded.
+        // This function may change that to URLZONE_TRUSTED if appropriate
         if (context.Contains(Execution::Data::InstallerPath))
         {
             if (WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::InstallerTrusted))
             {
+                // We know the installer already went through multiple scans and we can trust it.
                 Utility::ApplyMotwIfApplicable(context.Get<Execution::Data::InstallerPath>(), URLZONE_TRUSTED);
             }
             else if (WI_IsFlagSet(context.GetFlags(), Execution::ContextFlag::InstallerHashMatched))
             {
+                // IAttachmentExecute performs some additional scans before setting MotW, for example invoking anti-virus.
+                // A policy can be set to always mark files from a given domain as trusted, so only do this
+                // on installers with the right hash to prevent trusting unknown installers.
                 const auto& installer = context.Get<Execution::Data::Installer>();
                 HRESULT hr = Utility::ApplyMotwUsingIAttachmentExecuteIfApplicable(context.Get<Execution::Data::InstallerPath>(), installer.value().Url, URLZONE_INTERNET);
 
@@ -563,7 +614,7 @@ namespace AppInstaller::CLI::Workflow
 
         if (context.Args.Contains(Execution::Args::Type::DownloadDirectory))
         {
-            context.Add<Execution::Data::DownloadDirectory>(std::filesystem::path{ context.Args.GetArg(Execution::Args::Type::DownloadDirectory) });
+            context.Add<Execution::Data::DownloadDirectory>(std::filesystem::path{ Utility::ConvertToUTF16(context.Args.GetArg(Execution::Args::Type::DownloadDirectory)) });
         }
         else
         {
@@ -575,8 +626,12 @@ namespace AppInstaller::CLI::Workflow
             }
 
             const auto& manifest = context.Get<Execution::Data::Manifest>();
-            std::string packageDownloadFolderName = manifest.Id + '_' + manifest.Version;
-            context.Add<Execution::Data::DownloadDirectory>(downloadsDirectory / packageDownloadFolderName);
+            std::string packageDownloadFolderName = manifest.Id;
+            if (!Utility::Version{ manifest.Version }.IsUnknown())
+            {
+                packageDownloadFolderName += '_' + manifest.Version;
+            }
+            context.Add<Execution::Data::DownloadDirectory>(downloadsDirectory / Utility::ConvertToUTF16(packageDownloadFolderName));
         }
     }
 

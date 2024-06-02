@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="ConfigurationSetProcessor.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -10,9 +10,10 @@ namespace Microsoft.Management.Configuration.Processor.Set
     using System.Collections.Generic;
     using System.IO;
     using System.Management.Automation;
-    using Microsoft.Management.Configuration.Processor.Constants;
+    using System.Runtime.CompilerServices;
     using Microsoft.Management.Configuration.Processor.DscResourcesInfo;
     using Microsoft.Management.Configuration.Processor.Exceptions;
+    using Microsoft.Management.Configuration.Processor.Extensions;
     using Microsoft.Management.Configuration.Processor.Helpers;
     using Microsoft.Management.Configuration.Processor.ProcessorEnvironments;
     using Microsoft.Management.Configuration.Processor.Unit;
@@ -23,17 +24,34 @@ namespace Microsoft.Management.Configuration.Processor.Set
     /// </summary>
     internal sealed class ConfigurationSetProcessor : IConfigurationSetProcessor
     {
-        private readonly ConfigurationSet configurationSet;
+        private readonly ConfigurationSet? configurationSet;
+        private List<ConfigurationUnit> limitUnitList = new List<ConfigurationUnit>();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ConfigurationSetProcessor"/> class.
         /// </summary>
         /// <param name="processorEnvironment">The processor environment.</param>
         /// <param name="configurationSet">Configuration set.</param>
-        public ConfigurationSetProcessor(IProcessorEnvironment processorEnvironment, ConfigurationSet configurationSet)
+        /// <param name="isLimitMode">Whether the set processor should work in limitation mode.</param>
+        public ConfigurationSetProcessor(IProcessorEnvironment processorEnvironment, ConfigurationSet? configurationSet, bool isLimitMode = false)
         {
             this.ProcessorEnvironment = processorEnvironment;
             this.configurationSet = configurationSet;
+            this.IsLimitMode = isLimitMode;
+
+            // In limit mode, configurationSet is the limitation set to be used. It cannot be null.
+            if (this.IsLimitMode)
+            {
+                if (this.configurationSet == null)
+                {
+                    throw new ArgumentNullException(nameof(configurationSet), "configurationSet is required in limit mode.");
+                }
+
+                foreach (var unit in this.configurationSet.Units)
+                {
+                    this.limitUnitList.Add(unit);
+                }
+            }
         }
 
         /// <summary>
@@ -47,17 +65,27 @@ namespace Microsoft.Management.Configuration.Processor.Set
         internal IProcessorEnvironment ProcessorEnvironment { get; }
 
         /// <summary>
+        /// Gets a value indicating whether the set processor is running in limit mode.
+        /// </summary>
+        internal bool IsLimitMode { get; private set; }
+
+        /// <summary>
         /// Creates a configuration unit processor for the given unit.
         /// </summary>
-        /// <param name="unit">Configuration unit.</param>
+        /// <param name="incomingUnit">Configuration unit.</param>
         /// <returns>A configuration unit processor.</returns>
         public IConfigurationUnitProcessor CreateUnitProcessor(
-            ConfigurationUnit unit)
+            ConfigurationUnit incomingUnit)
         {
             try
             {
-                var configurationUnitInternal = new ConfigurationUnitInternal(unit, this.configurationSet.Path);
-                this.OnDiagnostics(DiagnosticLevel.Verbose, $"Creating unit processor for: {configurationUnitInternal.ToIdentifyingString()}...");
+                this.OnDiagnostics(DiagnosticLevel.Informational, $"GetUnitProcessorDetails is running in limit mode: {this.IsLimitMode}.");
+
+                // CreateUnitProcessor can only be called once on each configuration unit in limit mode.
+                var unit = this.GetConfigurationUnit(incomingUnit, true);
+
+                var configurationUnitInternal = new ConfigurationUnitInternal(unit, this.configurationSet?.Path) { UnitTypeIsResourceName = IsUnitTypeResourceName(this.configurationSet?.SchemaVersion) };
+                this.OnDiagnostics(DiagnosticLevel.Verbose, $"Creating unit processor for: {configurationUnitInternal.QualifiedName}...");
 
                 var dscResourceInfo = this.PrepareUnitForProcessing(configurationUnitInternal);
 
@@ -65,7 +93,8 @@ namespace Microsoft.Management.Configuration.Processor.Set
                 this.OnDiagnostics(DiagnosticLevel.Verbose, $"Using unit from location: {dscResourceInfo.Path}");
                 return new ConfigurationUnitProcessor(
                     this.ProcessorEnvironment,
-                    new ConfigurationUnitAndResource(configurationUnitInternal, dscResourceInfo))
+                    new ConfigurationUnitAndResource(configurationUnitInternal, dscResourceInfo),
+                    this.IsLimitMode)
                 { SetProcessorFactory = this.SetProcessorFactory };
             }
             catch (Exception ex)
@@ -78,17 +107,22 @@ namespace Microsoft.Management.Configuration.Processor.Set
         /// <summary>
         /// Gets the configuration unit processor details for the given unit.
         /// </summary>
-        /// <param name="unit">Configuration unit.</param>
+        /// <param name="incomingUnit">Configuration unit.</param>
         /// <param name="detailFlags">Detail flags.</param>
         /// <returns>Configuration unit processor details.</returns>
         public IConfigurationUnitProcessorDetails? GetUnitProcessorDetails(
-            ConfigurationUnit unit,
+            ConfigurationUnit incomingUnit,
             ConfigurationUnitDetailFlags detailFlags)
         {
             try
             {
-                var unitInternal = new ConfigurationUnitInternal(unit, this.configurationSet.Path);
-                this.OnDiagnostics(DiagnosticLevel.Verbose, $"Getting unit details [{detailFlags}] for: {unitInternal.ToIdentifyingString()}");
+                this.OnDiagnostics(DiagnosticLevel.Informational, $"GetUnitProcessorDetails is running in limit mode: {this.IsLimitMode}.");
+
+                // GetUnitProcessorDetails can be invoked multiple times on each configuration unit in limit mode.
+                var unit = this.GetConfigurationUnit(incomingUnit);
+
+                var unitInternal = new ConfigurationUnitInternal(unit, this.configurationSet?.Path);
+                this.OnDiagnostics(DiagnosticLevel.Verbose, $"Getting unit details [{detailFlags}] for: {unitInternal.QualifiedName}");
 
                 // (Local | Download | Load) will all work off of local files, so if any one is an option just use the local module info if found.
                 DscResourceInfoInternal? dscResourceInfo = null;
@@ -160,7 +194,7 @@ namespace Microsoft.Management.Configuration.Processor.Set
                     {
                         // Well, this is awkward.
                         throw new InstallDscResourceException(
-                            unit.Type,
+                            unitInternal.ResourceName,
                             PowerShellHelpers.CreateModuleSpecification(foundModuleInfo.Name, foundModuleInfo.Version));
                     }
 
@@ -174,6 +208,34 @@ namespace Microsoft.Management.Configuration.Processor.Set
                 this.OnDiagnostics(DiagnosticLevel.Error, ex.ToString());
                 throw;
             }
+        }
+
+        private static bool IsUnitTypeResourceName(string? schemaVersion)
+        {
+            return schemaVersion != null && schemaVersion == "0.1";
+        }
+
+        private static bool ConfigurationUnitEquals(ConfigurationUnit first, ConfigurationUnit second)
+        {
+            if (first.Identifier != second.Identifier ||
+                first.Type != second.Type ||
+                first.Intent != second.Intent)
+            {
+                return false;
+            }
+
+            if (!first.Settings.ContentEquals(second.Settings))
+            {
+                return false;
+            }
+
+            if (!first.Metadata.ContentEquals(second.Metadata))
+            {
+                return false;
+            }
+
+            // Note: Consider group units logic when group units are supported.
+            return true;
         }
 
         /// <summary>
@@ -193,7 +255,7 @@ namespace Microsoft.Management.Configuration.Processor.Set
                 foundModule = this.ProcessorEnvironment.FindModule(unitInternal);
                 if (foundModule != null)
                 {
-                    resourceName = unitInternal.Unit.Type;
+                    resourceName = unitInternal.ResourceName;
                 }
             }
             else
@@ -236,7 +298,7 @@ namespace Microsoft.Management.Configuration.Processor.Set
 
                 if (findUnitModuleResult is null)
                 {
-                    throw new FindDscResourceNotFoundException(unitInternal.Unit.Type, unitInternal.Module);
+                    throw new FindDscResourceNotFoundException(unitInternal.ResourceName, unitInternal.Module);
                 }
 
                 this.ProcessorEnvironment.InstallModule(findUnitModuleResult.Value.Module);
@@ -245,7 +307,7 @@ namespace Microsoft.Management.Configuration.Processor.Set
                 dscResourceInfo = this.ProcessorEnvironment.GetDscResource(unitInternal);
                 if (dscResourceInfo is null)
                 {
-                    throw new InstallDscResourceException(unitInternal.Unit.Type, unitInternal.Module);
+                    throw new InstallDscResourceException(unitInternal.ResourceName, unitInternal.Module);
                 }
             }
 
@@ -337,6 +399,43 @@ namespace Microsoft.Management.Configuration.Processor.Set
         private void OnDiagnostics(DiagnosticLevel level, string message)
         {
             this.SetProcessorFactory?.OnDiagnostics(level, message);
+        }
+
+        [MethodImpl(MethodImplOptions.Synchronized)]
+        private ConfigurationUnit GetConfigurationUnit(ConfigurationUnit incomingUnit, bool useLimitList = false)
+        {
+            if (this.IsLimitMode)
+            {
+                if (this.configurationSet == null)
+                {
+                    throw new InvalidOperationException("Configuration set should not be null in limit mode.");
+                }
+
+                var unitList = useLimitList ? this.limitUnitList : this.configurationSet.Units;
+
+                for (int i = 0; i < unitList.Count; i++)
+                {
+                    var unit = unitList[i];
+                    if (ConfigurationUnitEquals(incomingUnit, unit))
+                    {
+                        if (useLimitList)
+                        {
+                            this.limitUnitList.RemoveAt(i);
+                        }
+
+                        return unit;
+                    }
+
+                    // Note: Consider group units logic when group units are supported.
+                }
+
+                this.OnDiagnostics(DiagnosticLevel.Error, "Configuration unit not found in limit mode.");
+                throw new InvalidOperationException("Configuration unit not found in limit mode.");
+            }
+            else
+            {
+                return incomingUnit;
+            }
         }
     }
 }

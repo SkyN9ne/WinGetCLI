@@ -73,6 +73,7 @@
 ^NOTICE
 ^src/AppInstallerCLICore/Commands/ExperimentalCommand\.cpp$
 ^src/AppInstallerCLIE2ETests/TestData/AppInstallerTestMsiInstaller.msi$
+^src/AppInstallerCLIE2ETests/TestData/Configuration/Empty.yml$
 ^src/AppInstallerCLITests/TestData/InputARPData.txt$
 ^src/AppInstallerCLITests/TestData/InputNames.txt$
 ^src/AppInstallerCLITests/TestData/InputPublishers.txt$
@@ -83,11 +84,14 @@
 ^src/JsonCppLib/
 ^src/PowerShell/ExternalModules
 ^src/PureLib/
+^src/SfsClient/
 ^src/UndockedRegFreeWinRT/
 ^src/Valijson/
 ^src/Xlang/
 ^src/YamlCppLib/
 # Because it doesn't handle argument -Words well
+^src/PowerShell/tests/
 ^tools/CorrelationTestbed/.*\.ps1$
+^tools/DevInSandbox/.*\.ps1$
 ^tools/COMTrace/ComTrace.wprp$
 ignore$

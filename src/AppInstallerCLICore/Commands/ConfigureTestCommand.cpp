@@ -30,7 +30,6 @@ namespace AppInstaller::CLI
 
     Utility::LocIndView ConfigureTestCommand::HelpLink() const
     {
-        // TODO: Make this exist
         return "https://aka.ms/winget-command-configure#test"_liv;
     }
 
@@ -38,7 +37,7 @@ namespace AppInstaller::CLI
     {
         context <<
             VerifyIsFullPackage <<
-            VerifyFile(Execution::Args::Type::ConfigurationFile) <<
+            VerifyFileOrUri(Execution::Args::Type::ConfigurationFile) <<
             CreateConfigurationProcessor <<
             OpenConfigurationSet <<
             ShowConfigurationSet <<

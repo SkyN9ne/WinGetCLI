@@ -35,6 +35,7 @@ namespace TestCommon
         const extern TestSourceResult TestInstaller_Exe;
         const extern TestSourceResult TestInstaller_Exe_Dependencies;
         const extern TestSourceResult TestInstaller_Exe_DifferentInstallerType;
+        const extern TestSourceResult TestInstaller_Exe_ExpectedReturnCodes;
         const extern TestSourceResult TestInstaller_Exe_IncompatibleInstallerType;
         const extern TestSourceResult TestInstaller_Exe_LatestInstalled;
         const extern TestSourceResult TestInstaller_Exe_LicenseAgreement;
@@ -136,4 +137,8 @@ namespace TestCommon
     void OverrideOpenDependencySource(TestContext& context);
 
     void OverrideEnableWindowsFeaturesDependencies(TestContext& context);
+
+    void OverrideRegisterStartupAfterReboot(TestContext& context);
+
+    void OverrideDownloadInstallerFileForMSStoreDownload(TestContext& context);
 }

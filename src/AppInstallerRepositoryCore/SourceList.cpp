@@ -24,16 +24,18 @@ namespace AppInstaller::Repository
         constexpr std::string_view s_SourcesYaml_Source_Data = "Data"sv;
         constexpr std::string_view s_SourcesYaml_Source_Identifier = "Identifier"sv;
         constexpr std::string_view s_SourcesYaml_Source_IsTombstone = "IsTombstone"sv;
+        constexpr std::string_view s_SourcesYaml_Source_Explicit = "Explicit"sv;
+        constexpr std::string_view s_SourcesYaml_Source_TrustLevel = "TrustLevel"sv;
 
         constexpr std::string_view s_MetadataYaml_Sources = "Sources"sv;
         constexpr std::string_view s_MetadataYaml_Source_Name = "Name"sv;
         constexpr std::string_view s_MetadataYaml_Source_LastUpdate = "LastUpdate"sv;
+        constexpr std::string_view s_MetadataYaml_Source_DoNotUpdateBefore = "DoNotUpdateBefore"sv;
         constexpr std::string_view s_MetadataYaml_Source_AcceptedAgreementsIdentifier = "AcceptedAgreementsIdentifier"sv;
         constexpr std::string_view s_MetadataYaml_Source_AcceptedAgreementFields = "AcceptedAgreementFields"sv;
 
         constexpr std::string_view s_Source_WingetCommunityDefault_Name = "winget"sv;
         constexpr std::string_view s_Source_WingetCommunityDefault_Arg = "https://cdn.winget.microsoft.com/cache"sv;
-        constexpr std::string_view s_Source_WingetCommunityDefault_AlternateArg = "https://winget-cache-pme-cxfsgwfxarb8hwg0.z01.azurefd.net/cache"sv;
         constexpr std::string_view s_Source_WingetCommunityDefault_Data = "Microsoft.Winget.Source_8wekyb3d8bbwe"sv;
         constexpr std::string_view s_Source_WingetCommunityDefault_Identifier = "Microsoft.Winget.Source_8wekyb3d8bbwe"sv;
 
@@ -43,7 +45,6 @@ namespace AppInstaller::Repository
 
         constexpr std::string_view s_Source_DesktopFrameworks_Name = "microsoft.builtin.desktop.frameworks"sv;
         constexpr std::string_view s_Source_DesktopFrameworks_Arg = "https://cdn.winget.microsoft.com/platform"sv;
-        constexpr std::string_view s_Source_DesktopFrameworks_AlternateArg = "https://winget-cache-pme-cxfsgwfxarb8hwg0.z01.azurefd.net/platform"sv;
         constexpr std::string_view s_Source_DesktopFrameworks_Data = "Microsoft.Winget.Platform.Source_8wekyb3d8bbwe"sv;
         constexpr std::string_view s_Source_DesktopFrameworks_Identifier = "Microsoft.Winget.Platform.Source_8wekyb3d8bbwe"sv;
 
@@ -146,7 +147,10 @@ namespace AppInstaller::Repository
             else
             {
                 std::vector<SourceDetailsInternal> result;
-                THROW_HR_IF(APPINSTALLER_CLI_ERROR_SOURCES_INVALID, !TryReadSourceDetails(setting.GetName(), *sourcesStream, rootName, parse, result));
+                if (!TryReadSourceDetails(setting.GetName(), *sourcesStream, rootName, parse, result))
+                {
+                    AICLI_LOG(YAML, Error, << "Ignoring corrupted source data.");
+                }
                 return result;
             }
         }
@@ -179,6 +183,8 @@ namespace AppInstaller::Repository
                     out << YAML::Key << s_SourcesYaml_Source_Data << YAML::Value << details.Data;
                     out << YAML::Key << s_SourcesYaml_Source_Identifier << YAML::Value << details.Identifier;
                     out << YAML::Key << s_SourcesYaml_Source_IsTombstone << YAML::Value << details.IsTombstone;
+                    out << YAML::Key << s_SourcesYaml_Source_Explicit << YAML::Value << details.Explicit;
+                    out << YAML::Key << s_SourcesYaml_Source_TrustLevel << YAML::Value << static_cast<int64_t>(details.TrustLevel);
                     out << YAML::EndMap;
                 }
             }
@@ -205,9 +211,24 @@ namespace AppInstaller::Repository
 
     void SourceDetailsInternal::CopyMetadataFieldsTo(SourceDetailsInternal& target)
     {
-        target.LastUpdateTime = LastUpdateTime;
+        if (LastUpdateTime > target.LastUpdateTime)
+        {
+            target.LastUpdateTime = LastUpdateTime;
+        }
+
+        if (DoNotUpdateBefore > target.DoNotUpdateBefore)
+        {
+            target.DoNotUpdateBefore = DoNotUpdateBefore;
+        }
+
         target.AcceptedAgreementFields = AcceptedAgreementFields;
         target.AcceptedAgreementsIdentifier = AcceptedAgreementsIdentifier;
+    }
+
+    void SourceDetailsInternal::CopyMetadataFieldsFrom(const SourceDetails& source)
+    {
+        LastUpdateTime = source.LastUpdateTime;
+        DoNotUpdateBefore = source.DoNotUpdateBefore;
     }
 
     std::string_view GetWellKnownSourceName(WellKnownSource source)
@@ -286,10 +307,6 @@ namespace AppInstaller::Repository
             details.Name = s_Source_WingetCommunityDefault_Name;
             details.Type = Microsoft::PreIndexedPackageSourceFactory::Type();
             details.Arg = s_Source_WingetCommunityDefault_Arg;
-            if (Settings::User().Get<Settings::Setting::NetworkWingetAlternateSourceURL>())
-            {
-                details.AlternateArg = s_Source_WingetCommunityDefault_AlternateArg;
-            }
             details.Data = s_Source_WingetCommunityDefault_Data;
             details.Identifier = s_Source_WingetCommunityDefault_Identifier;
             details.TrustLevel = SourceTrustLevel::Trusted | SourceTrustLevel::StoreOrigin;
@@ -306,7 +323,7 @@ namespace AppInstaller::Repository
             details.TrustLevel = SourceTrustLevel::Trusted;
             details.SupportInstalledSearchCorrelation = false;
 
-            if (!Settings::IsAdminSettingEnabled(Settings::AdminSetting::BypassCertificatePinningForMicrosoftStore))
+            if (!Settings::IsAdminSettingEnabled(Settings::BoolAdminSetting::BypassCertificatePinningForMicrosoftStore))
             {
                 using namespace AppInstaller::Certificates;
 
@@ -340,7 +357,6 @@ namespace AppInstaller::Repository
             details.Name = s_Source_DesktopFrameworks_Name;
             details.Type = Microsoft::PreIndexedPackageSourceFactory::Type();
             details.Arg = s_Source_DesktopFrameworks_Arg;
-            details.AlternateArg = s_Source_DesktopFrameworks_AlternateArg;
             details.Data = s_Source_DesktopFrameworks_Data;
             details.Identifier = s_Source_DesktopFrameworks_Identifier;
             details.TrustLevel = SourceTrustLevel::Trusted | SourceTrustLevel::StoreOrigin;
@@ -624,7 +640,15 @@ namespace AppInstaller::Repository
                     if (!TryReadScalar(name, settingValue, source, s_SourcesYaml_Source_Arg, details.Arg)) { return false; }
                     if (!TryReadScalar(name, settingValue, source, s_SourcesYaml_Source_Data, details.Data)) { return false; }
                     if (!TryReadScalar(name, settingValue, source, s_SourcesYaml_Source_IsTombstone, details.IsTombstone)) { return false; }
+                    TryReadScalar(name, settingValue, source, s_SourcesYaml_Source_Explicit, details.Explicit, false);
                     TryReadScalar(name, settingValue, source, s_SourcesYaml_Source_Identifier, details.Identifier, false);
+
+                    int64_t trustLevelValue;
+                    if (TryReadScalar(name, settingValue, source, s_SourcesYaml_Source_TrustLevel, trustLevelValue, false))
+                    {
+                        details.TrustLevel = static_cast<Repository::SourceTrustLevel>(trustLevelValue);
+                    }
+
                     return true;
                 });
 
@@ -660,9 +684,20 @@ namespace AppInstaller::Repository
                         details.Data = additionalSource.Data;
                         details.Identifier = additionalSource.Identifier;
                         details.Origin = SourceOrigin::GroupPolicy;
+                        details.Explicit = additionalSource.Explicit;
 #ifndef AICLI_DISABLE_TEST_HOOKS
                         details.CertificatePinningConfiguration = additionalSource.PinningConfiguration;
 #endif
+                        try
+                        {
+                            details.TrustLevel = Repository::ConvertToSourceTrustLevelFlag(additionalSource.TrustLevel);
+                        }
+                        catch (...)
+                        {
+                            details.TrustLevel = Repository::SourceTrustLevel::None;
+                            AICLI_LOG(Repo, Verbose, << "Invalid source trust level from policy. Trust level set to None.");
+                        }
+
                         result.emplace_back(std::move(details));
                     }
                 }
@@ -710,9 +745,17 @@ namespace AppInstaller::Repository
                 details.Origin = SourceOrigin::Metadata;
                 std::string_view name = m_metadataStream.GetName();
                 if (!TryReadScalar(name, settingValue, source, s_MetadataYaml_Source_Name, details.Name)) { return false; }
+
                 int64_t lastUpdateInEpoch{};
                 if (!TryReadScalar(name, settingValue, source, s_MetadataYaml_Source_LastUpdate, lastUpdateInEpoch)) { return false; }
                 details.LastUpdateTime = Utility::ConvertUnixEpochToSystemClock(lastUpdateInEpoch);
+
+                int64_t doNotUpdateBeforeInEpoch{};
+                if (TryReadScalar(name, settingValue, source, s_MetadataYaml_Source_DoNotUpdateBefore, doNotUpdateBeforeInEpoch, false))
+                {
+                    details.DoNotUpdateBefore = Utility::ConvertUnixEpochToSystemClock(doNotUpdateBeforeInEpoch);
+                }
+
                 TryReadScalar(name, settingValue, source, s_MetadataYaml_Source_AcceptedAgreementsIdentifier, details.AcceptedAgreementsIdentifier, false);
                 TryReadScalar(name, settingValue, source, s_MetadataYaml_Source_AcceptedAgreementFields, details.AcceptedAgreementFields, false);
                 return true;
@@ -731,6 +774,7 @@ namespace AppInstaller::Repository
             out << YAML::BeginMap;
             out << YAML::Key << s_MetadataYaml_Source_Name << YAML::Value << details.Name;
             out << YAML::Key << s_MetadataYaml_Source_LastUpdate << YAML::Value << Utility::ConvertSystemClockToUnixEpoch(details.LastUpdateTime);
+            out << YAML::Key << s_MetadataYaml_Source_DoNotUpdateBefore << YAML::Value << Utility::ConvertSystemClockToUnixEpoch(details.DoNotUpdateBefore);
             out << YAML::Key << s_MetadataYaml_Source_AcceptedAgreementsIdentifier << YAML::Value << details.AcceptedAgreementsIdentifier;
             out << YAML::Key << s_MetadataYaml_Source_AcceptedAgreementFields << YAML::Value << details.AcceptedAgreementFields;
             out << YAML::EndMap;

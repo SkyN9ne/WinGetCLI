@@ -57,6 +57,8 @@ namespace AppInstaller::CLI
             Command(name, {}, parent, Command::Visibility::Show, Settings::ExperimentalFeature::Feature::None, Settings::TogglePolicy::Policy::None, outputFlags) {}
         Command(std::string_view name, std::vector<std::string_view> aliases, std::string_view parent, Command::Visibility visibility) :
             Command(name, aliases, parent, visibility, Settings::ExperimentalFeature::Feature::None) {}
+        Command(std::string_view name, std::string_view parent, Settings::ExperimentalFeature::Feature feature) :
+            Command(name, {}, parent, Command::Visibility::Show, feature) {}
         Command(std::string_view name, std::vector<std::string_view> aliases, std::string_view parent, Settings::ExperimentalFeature::Feature feature) :
             Command(name, aliases, parent, Command::Visibility::Show, feature) {}
         Command(std::string_view name, std::vector<std::string_view> aliases, std::string_view parent, Settings::TogglePolicy::Policy groupPolicy) :
@@ -112,6 +114,8 @@ namespace AppInstaller::CLI
 
         virtual void Execute(Execution::Context& context) const;
 
+        virtual void Resume(Execution::Context& context) const;
+
     protected:
         void SelectCurrentCommandIfUnrecognizedSubcommandFound(bool value);
 
@@ -127,6 +131,7 @@ namespace AppInstaller::CLI
         Settings::TogglePolicy::Policy m_groupPolicy;
         CommandOutputFlags m_outputFlags;
         bool m_selectCurrentCommandIfUnrecognizedSubcommandFound = false;
+        std::string m_commandArguments;
     };
 
     template <typename Container>

@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="ConfigurationProcessorTestBase.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -7,9 +7,7 @@
 namespace Microsoft.Management.Configuration.UnitTests.Helpers
 {
     using System;
-    using Microsoft.CodeAnalysis.Emit;
     using Microsoft.Management.Configuration.UnitTests.Fixtures;
-    using Microsoft.VisualStudio.TestPlatform.ObjectModel;
     using Windows.Storage.Streams;
     using Xunit;
     using Xunit.Abstractions;
@@ -81,6 +79,29 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
         }
 
         /// <summary>
+        /// Creates an string from the given output stream.
+        /// </summary>
+        /// <param name="stream">The output stream.</param>
+        /// <returns>The created string.</returns>
+        protected string ReadStream(InMemoryRandomAccessStream stream)
+        {
+            string result = string.Empty;
+            using (DataReader reader = new DataReader(stream.GetInputStreamAt(0)))
+            {
+                reader.UnicodeEncoding = UnicodeEncoding.Utf8;
+                reader.LoadAsync((uint)stream.Size).AsTask().Wait();
+                uint bytesToRead = reader.UnconsumedBufferLength;
+
+                if (bytesToRead > 0)
+                {
+                    result = reader.ReadString(bytesToRead);
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Creates a configuration unit via the configuration statics object.
         /// </summary>
         /// <returns>A new configuration unit.</returns>
@@ -147,6 +168,11 @@ namespace Microsoft.Management.Configuration.UnitTests.Helpers
 
         private static void SummaryCountByIntent(int[] counts, int[] runs, int[] failures, ConfigurationUnitIntent intent, IConfigurationUnitResultInformation resultInformation)
         {
+            if (intent == ConfigurationUnitIntent.Unknown)
+            {
+                intent = ConfigurationUnitIntent.Apply;
+            }
+
             int index = (int)intent;
 
             counts[index]++;

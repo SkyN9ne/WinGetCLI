@@ -45,6 +45,8 @@ namespace AppInstaller::YAML
                 return "Writer"sv;
             case Exception::Type::Emitter:
                 return "Emitter"sv;
+            case Exception::Type::Policy:
+                return "Policy"sv;
             }
 
             return "Unknown"sv;
@@ -269,6 +271,71 @@ namespace AppInstaller::YAML
         return result;
     }
 
+    // Gets a child node from the mapping by its name.
+    Node& Node::GetChildNode(std::string_view key)
+    {
+        Require(Type::Mapping);
+
+        auto itr = m_mapping->begin();
+        for (; itr != m_mapping->end(); itr++)
+        {
+            if (Utility::CaseInsensitiveEquals(itr->first.m_scalar, key))
+            {
+                break;
+            }
+        }
+
+        if (itr == m_mapping->end())
+        {
+            return s_globalInvalidNode;
+        }
+
+        auto firstFound = itr;
+        for (++itr; itr != m_mapping->end(); itr++)
+        {
+            if (Utility::CaseInsensitiveEquals(itr->first.m_scalar, key))
+            {
+                break;
+            }
+        }
+
+        THROW_HR_IF(APPINSTALLER_CLI_ERROR_YAML_DUPLICATE_MAPPING_KEY, itr != m_mapping->end());
+        Node& result = firstFound->second;
+        return result;
+    }
+
+    const Node& Node::GetChildNode(std::string_view key) const
+    {
+        Require(Type::Mapping);
+
+        auto itr = m_mapping->begin();
+        for (; itr != m_mapping->end(); itr++)
+        {
+            if (Utility::CaseInsensitiveEquals(itr->first.m_scalar, key))
+            {
+                break;
+            }
+        }
+
+        if (itr == m_mapping->end())
+        {
+            return s_globalInvalidNode;
+        }
+
+        auto firstFound = itr;
+        for (++itr; itr != m_mapping->end(); itr++)
+        {
+            if (Utility::CaseInsensitiveEquals(itr->first.m_scalar, key))
+            {
+                break;
+            }
+        }
+
+        THROW_HR_IF(APPINSTALLER_CLI_ERROR_YAML_DUPLICATE_MAPPING_KEY, itr != m_mapping->end());
+        const Node& result = firstFound->second;
+        return result;
+    }
+
     Node& Node::operator[](size_t index)
     {
         Require(Type::Sequence);
@@ -342,14 +409,22 @@ namespace AppInstaller::YAML
 
     std::optional<int64_t> Node::try_as_dispatch(int64_t*) const
     {
-        try
-        {
-            return std::optional{ std::stoll(m_scalar) };
-        }
-        catch(...)
+        if (m_scalar.empty())
         {
             return {};
         }
+
+        const char* begin = m_scalar.c_str();
+        char* end = nullptr;
+        errno = 0;
+        int64_t result = static_cast<int64_t>(strtoll(begin, &end, 0));
+
+        if (errno == ERANGE || static_cast<size_t>(end - begin) != m_scalar.length())
+        {
+            return {};
+        }
+
+        return result;
     }
 
     int Node::as_dispatch(int*) const
@@ -396,6 +471,82 @@ namespace AppInstaller::YAML
         }
 
         return {};
+    }
+
+    void Node::MergeSequenceNode(Node other, std::string_view key, bool caseInsensitive)
+    {
+        Require(Type::Sequence);
+        other.Require(Type::Sequence);
+
+        auto getKeyValue = [&](const YAML::Node& node) {
+            auto keyNode = caseInsensitive ? node.GetChildNode(key) : node[key];
+            if (keyNode.IsNull())
+            {
+                THROW_HR(APPINSTALLER_CLI_ERROR_YAML_INVALID_DATA);
+            }
+
+            auto keyValue = keyNode.as<std::string>();
+            return caseInsensitive ? std::string{ Utility::FoldCase(std::string_view{keyValue}) } : keyValue;
+        };
+
+        std::map<std::string, Node> newSequenceMap;
+        for (Node& node : m_sequence.value())
+        {
+            node.Require(Type::Mapping);
+            auto keyValue = getKeyValue(node);
+            newSequenceMap.emplace(std::move(keyValue), std::move(node));
+        }
+
+        for (Node& node : other.m_sequence.value())
+        {
+            node.Require(Type::Mapping);
+            auto keyValue = getKeyValue(node);
+            if (newSequenceMap.find(keyValue) == newSequenceMap.end())
+            {
+                newSequenceMap.emplace(std::move(keyValue), std::move(node));
+            }
+            else
+            {
+                newSequenceMap[keyValue].MergeMappingNode(node, caseInsensitive);
+            }
+        }
+
+        m_sequence.reset();
+        std::vector<Node> newSequence;
+        for (const auto& keyValuePair : newSequenceMap)
+        {
+            newSequence.push_back(keyValuePair.second);
+        }
+
+        m_sequence = std::move(newSequence);
+    }
+
+    void Node::MergeMappingNode(Node other, bool caseInsensitive)
+    {
+        Require(Type::Mapping);
+        other.Require(Type::Mapping);
+
+        std::multimap<Node, Node> uniques;
+        for (auto& keyValuePair : other.m_mapping.value())
+        {
+            if (caseInsensitive)
+            {
+                auto node = GetChildNode(keyValuePair.first.as<std::string>());
+                if (node.IsNull())
+                {
+                    uniques.emplace(std::move(keyValuePair));
+                }
+            }
+            else
+            {
+                if (m_mapping->count(keyValuePair.first) == 0)
+                {
+                    uniques.emplace(std::move(keyValuePair));
+                }
+            }
+        }
+
+        m_mapping->merge(uniques);
     }
 
     Node Load(std::string_view input)

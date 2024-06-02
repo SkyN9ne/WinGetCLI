@@ -5,6 +5,7 @@
 #include "Public/AppInstallerStrings.h"
 #include "HttpClientWrapper.h"
 #include "Public/AppInstallerRuntime.h"
+#include "Public/AppInstallerDownloader.h"
 
 using namespace winrt::Windows::Foundation;
 using namespace winrt::Windows::Security::Cryptography;
@@ -21,6 +22,7 @@ namespace AppInstaller::Utility::HttpStream
 {
     std::future<std::shared_ptr<HttpClientWrapper>> HttpClientWrapper::CreateAsync(const Uri& uri)
     {
+        // TODO: Use proxy info. HttpClient does not support using a custom proxy, only using the system-wide one.
         std::shared_ptr<HttpClientWrapper> instance = std::make_shared<HttpClientWrapper>();
 
         // Use an HTTP filter to disable the default caching behavior and use the Most Recent caching behavior instead
@@ -47,9 +49,19 @@ namespace AppInstaller::Utility::HttpStream
 
         HttpResponseMessage response = co_await m_httpClient.SendRequestAsync(request, HttpCompletionOption::ResponseHeadersRead);
 
-        THROW_HR_IF(
-            MAKE_HRESULT(SEVERITY_ERROR, FACILITY_HTTP, response.StatusCode()),
-            response.StatusCode() != HttpStatusCode::Ok);
+        switch (response.StatusCode())
+        {
+        case HttpStatusCode::Ok:
+            // All good
+            break;
+        case HttpStatusCode::TooManyRequests:
+        case HttpStatusCode::ServiceUnavailable:
+        {
+            THROW_EXCEPTION(ServiceUnavailableException(GetRetryAfter(response)));
+        }
+        default:
+            THROW_HR(MAKE_HRESULT(SEVERITY_ERROR, FACILITY_HTTP, response.StatusCode()));
+        }
 
         // Get the length from the response
         if (response.Content().Headers().HasKey(L"Content-Length"))
@@ -75,6 +87,11 @@ namespace AppInstaller::Utility::HttpStream
             co_await SendHttpRequestAsync(0, 1);
         }
     }
+
+#ifdef WINGET_DISABLE_FOR_FUZZING
+#pragma warning( push )
+#pragma warning( disable : 4714) // HRESULT_FROM_WIN32 marked as forceinline not inlined
+#endif
 
     std::future<IBuffer> HttpClientWrapper::SendHttpRequestAsync(
         _In_ ULONG64 startPosition,
@@ -105,6 +122,21 @@ namespace AppInstaller::Utility::HttpStream
 
         HttpResponseMessage response = co_await m_httpClient.SendRequestAsync(request, HttpCompletionOption::ResponseHeadersRead);
         HttpContentHeaderCollection contentHeaders = response.Content().Headers();
+
+        switch (response.StatusCode())
+        {
+        case HttpStatusCode::Ok:
+        case HttpStatusCode::PartialContent:
+            // All good
+            break;
+        case HttpStatusCode::TooManyRequests:
+        case HttpStatusCode::ServiceUnavailable:
+        {
+            THROW_EXCEPTION(ServiceUnavailableException(GetRetryAfter(response)));
+        }
+        default:
+            THROW_HR(MAKE_HRESULT(SEVERITY_ERROR, FACILITY_HTTP, response.StatusCode()));
+        }
 
         if (response.StatusCode() != HttpStatusCode::PartialContent && startPosition != 0)
         {
@@ -140,6 +172,10 @@ namespace AppInstaller::Utility::HttpStream
 
         co_return co_await response.Content().ReadAsBufferAsync();
     }
+
+#ifdef WINGET_DISABLE_FOR_FUZZING
+#pragma warning( pop ) 
+#endif
 
     std::future<IBuffer> HttpClientWrapper::DownloadRangeAsync(
         const ULONG64 startPosition,

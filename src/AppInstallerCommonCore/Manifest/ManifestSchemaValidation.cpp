@@ -104,7 +104,17 @@ namespace AppInstaller::Manifest::YamlParser
         int idx = MANIFESTSCHEMA_NO_RESOURCE;
         std::map<ManifestTypeEnum, int> resourceMap;
 
-        if (manifestVersion >= ManifestVer{ s_ManifestVersionV1_6 })
+        if (manifestVersion >= ManifestVer{ s_ManifestVersionV1_7 })
+        {
+            resourceMap = {
+                { ManifestTypeEnum::Singleton, IDX_MANIFEST_SCHEMA_V1_7_SINGLETON },
+                { ManifestTypeEnum::Version, IDX_MANIFEST_SCHEMA_V1_7_VERSION },
+                { ManifestTypeEnum::Installer, IDX_MANIFEST_SCHEMA_V1_7_INSTALLER },
+                { ManifestTypeEnum::DefaultLocale, IDX_MANIFEST_SCHEMA_V1_7_DEFAULTLOCALE },
+                { ManifestTypeEnum::Locale, IDX_MANIFEST_SCHEMA_V1_7_LOCALE },
+            };
+        } 
+        else if (manifestVersion >= ManifestVer{ s_ManifestVersionV1_6 })
         {
             resourceMap = {
                 { ManifestTypeEnum::Singleton, IDX_MANIFEST_SCHEMA_V1_6_SINGLETON },
@@ -193,6 +203,12 @@ namespace AppInstaller::Manifest::YamlParser
 
         for (const auto& entry : manifestList)
         {
+            if (entry.ManifestType == ManifestTypeEnum::Shadow)
+            {
+                // There's no schema for a shadow manifest.
+                continue;
+            }
+
             if (schemaList.find(entry.ManifestType) == schemaList.end())
             {
                 // Copy constructor of valijson::Schema was private

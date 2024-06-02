@@ -23,7 +23,13 @@ namespace AppInstaller::Settings
             None = 0x0,
             // Before making DirectMSI non-experimental, it should be part of manifest validation.
             DirectMSI = 0x1,
-            WindowsFeature = 0x2,
+            Resume = 0x2,
+            Configuration03 = 0x4,
+            SideBySide = 0x8,
+            ConfigureSelfElevation = 0x10,
+            StoreDownload = 0x20,
+            ConfigureExport = 0x40,
+            IndexV2 = 0x80,
             Max, // This MUST always be after all experimental features
 
             // Features listed after Max will not be shown with the features command

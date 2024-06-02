@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Microsoft.WinGet.Configuration.Engine.Resources {
+namespace Microsoft.WinGet.Resources {
     using System;
     
     
@@ -552,6 +552,24 @@ namespace Microsoft.WinGet.Configuration.Engine.Resources {
         internal static string SeeLineAndColumn {
             get {
                 return ResourceManager.GetString("SeeLineAndColumn", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Loading the module for the configuration unit failed because it requires administrator privileges to run..
+        /// </summary>
+        internal static string WinGetConfigUnitImportModuleAdmin {
+            get {
+                return ResourceManager.GetString("WinGetConfigUnitImportModuleAdmin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to A unit contains a setting that requires the config root..
+        /// </summary>
+        internal static string WinGetConfigUnitSettingConfigRoot {
+            get {
+                return ResourceManager.GetString("WinGetConfigUnitSettingConfigRoot", resourceCulture);
             }
         }
     }

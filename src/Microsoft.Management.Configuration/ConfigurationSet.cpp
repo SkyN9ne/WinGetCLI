@@ -4,6 +4,7 @@
 #include "ConfigurationSet.h"
 #include "ConfigurationSet.g.cpp"
 #include "ConfigurationSetParser.h"
+#include "ConfigurationSetSerializer.h"
 
 namespace winrt::Microsoft::Management::Configuration::implementation
 {
@@ -20,9 +21,14 @@ namespace winrt::Microsoft::Management::Configuration::implementation
     {
     }
 
-    void ConfigurationSet::Initialize(std::vector<Configuration::ConfigurationUnit>&& units)
+    void ConfigurationSet::Units(std::vector<Configuration::ConfigurationUnit>&& units)
     {
-        m_units = winrt::single_threaded_vector<Configuration::ConfigurationUnit>(std::move(units));
+        m_units = winrt::multi_threaded_vector<Configuration::ConfigurationUnit>(std::move(units));
+    }
+
+    void ConfigurationSet::Parameters(std::vector<Configuration::ConfigurationParameter>&& value)
+    {
+        m_parameters = winrt::multi_threaded_vector<Configuration::ConfigurationParameter>(std::move(value));
     }
 
     bool ConfigurationSet::IsFromHistory() const
@@ -104,6 +110,7 @@ namespace winrt::Microsoft::Management::Configuration::implementation
     void ConfigurationSet::SchemaVersion(const hstring& value)
     {
         THROW_HR_IF(E_INVALIDARG, !ConfigurationSetParser::IsRecognizedSchemaVersion(value));
+        m_schemaUri = ConfigurationSetParser::GetSchemaUriForVersion(value);
         m_schemaVersion = value;
     }
 
@@ -119,8 +126,15 @@ namespace winrt::Microsoft::Management::Configuration::implementation
 
     void ConfigurationSet::Serialize(const Windows::Storage::Streams::IOutputStream& stream)
     {
-        UNREFERENCED_PARAMETER(stream);
-        THROW_HR(E_NOTIMPL);
+        std::unique_ptr<ConfigurationSetSerializer> serializer = ConfigurationSetSerializer::CreateSerializer(m_schemaVersion);
+        hstring result = serializer->Serialize(this);
+        auto resultUtf8 = winrt::to_string(result);
+        std::vector<uint8_t> bytes(resultUtf8.begin(), resultUtf8.end());
+
+        Windows::Storage::Streams::DataWriter dataWriter{ stream };
+        dataWriter.WriteBytes(bytes);
+        dataWriter.StoreAsync().get();
+        dataWriter.DetachStream();
     }
 
     void ConfigurationSet::Remove()
@@ -128,8 +142,63 @@ namespace winrt::Microsoft::Management::Configuration::implementation
         THROW_HR(E_NOTIMPL);
     }
 
+    Windows::Foundation::Collections::ValueSet ConfigurationSet::Metadata()
+    {
+        return m_metadata;
+    }
+
+    void ConfigurationSet::Metadata(const Windows::Foundation::Collections::ValueSet& value)
+    {
+        THROW_HR_IF(E_POINTER, !value);
+        m_metadata = value;
+    }
+
+    Windows::Foundation::Collections::IVector<ConfigurationParameter> ConfigurationSet::Parameters()
+    {
+        return m_parameters;
+    }
+
+    void ConfigurationSet::Parameters(const Windows::Foundation::Collections::IVector<ConfigurationParameter>& value)
+    {
+        THROW_HR_IF(E_POINTER, !value);
+        m_parameters = value;
+    }
+
+    Windows::Foundation::Collections::ValueSet ConfigurationSet::Variables()
+    {
+        return m_variables;
+    }
+
+    void ConfigurationSet::Variables(const Windows::Foundation::Collections::ValueSet& value)
+    {
+        THROW_HR_IF(E_POINTER, !value);
+        m_variables = value;
+    }
+
+    Windows::Foundation::Uri ConfigurationSet::SchemaUri()
+    {
+        return m_schemaUri;
+    }
+
+    void ConfigurationSet::SchemaUri(const Windows::Foundation::Uri& value)
+    {
+        THROW_HR_IF(E_INVALIDARG, !ConfigurationSetParser::IsRecognizedSchemaUri(value));
+        m_schemaVersion = ConfigurationSetParser::GetSchemaVersionForUri(value);
+        m_schemaUri = value;
+    }
+
     HRESULT STDMETHODCALLTYPE ConfigurationSet::SetLifetimeWatcher(IUnknown* watcher)
     {
         return AppInstaller::WinRT::LifetimeWatcherBase::SetLifetimeWatcher(watcher);
+    }
+
+    void ConfigurationSet::SetInputHash(std::string inputHash)
+    {
+        m_inputHash = std::move(inputHash);
+    }
+
+    const std::string& ConfigurationSet::GetInputHash() const
+    {
+        return m_inputHash;
     }
 }

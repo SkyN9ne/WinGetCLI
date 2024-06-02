@@ -465,6 +465,34 @@ namespace AppInstaller::Msix
         return { result };
     }
 
+    Utility::UInt64Version GetPackageVersionFromFullName(std::string_view fullName)
+    {
+        std::wstring fullNameWide = Utility::ConvertToUTF16(fullName);
+
+        UINT32 length = 0;
+        LONG returnVal = PackageIdFromFullName(fullNameWide.c_str(), PACKAGE_INFORMATION_BASIC, &length, nullptr);
+        if (returnVal != ERROR_INSUFFICIENT_BUFFER)
+        {
+            LOG_WIN32(returnVal);
+            return 0;
+        }
+
+        THROW_HR_IF(E_UNEXPECTED, length == 0);
+
+        std::unique_ptr<BYTE[]> packageIdContent = std::make_unique<BYTE[]>(length);
+
+        returnVal = PackageIdFromFullName(fullNameWide.c_str(), PACKAGE_INFORMATION_BASIC, &length, packageIdContent.get());
+        if (returnVal != ERROR_SUCCESS)
+        {
+            LOG_WIN32(returnVal);
+            return 0;
+        }
+
+        PACKAGE_ID* packageId = (PACKAGE_ID*)packageIdContent.get();
+
+        return packageId->version.Version;
+    }
+
     GetCertContextResult GetCertContextFromMsix(const std::filesystem::path& msixPath)
     {
         // Retrieve raw signature from msix
@@ -531,6 +559,7 @@ namespace AppInstaller::Msix
     MsixInfo::MsixInfo(std::string_view uriStr)
     {
         m_stream = Utility::GetReadOnlyStreamFromURI(uriStr);
+
         if (GetBundleReader(m_stream.Get(), &m_bundleReader))
         {
             m_isBundle = true;

@@ -87,6 +87,7 @@ namespace AppInstaller
 
         constexpr const WinGetHResultData s_wingetHResultData[] =
         {
+            // Changes to any of these errors require the corresponding resource string in winget.resw to be updated.
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INTERNAL_ERROR, "Internal Error"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INVALID_CL_ARGUMENTS, "Invalid command line arguments"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_COMMAND_FAILED, "Executing command failed"),
@@ -145,16 +146,16 @@ namespace AppInstaller
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_UNSUPPORTED_RESTSOURCE, "The configured rest source is not supported"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESTSOURCE_INVALID_DATA, "Invalid data returned by rest source"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_BLOCKED_BY_POLICY, "Operation is blocked by Group Policy"),
-            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESTSOURCE_INTERNAL_ERROR, "Rest source internal error"),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESTAPI_INTERNAL_ERROR, "Rest API internal error"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESTSOURCE_INVALID_URL, "Invalid rest source url"),
-            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESTSOURCE_UNSUPPORTED_MIME_TYPE, "Unsupported MIME type returned by rest source"),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESTAPI_UNSUPPORTED_MIME_TYPE, "Unsupported MIME type returned by rest API"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESTSOURCE_INVALID_VERSION, "Invalid rest source contract version"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_SOURCE_DATA_INTEGRITY_FAILURE, "The source data is corrupted or tampered"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_STREAM_READ_FAILURE, "Error reading from the stream"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_PACKAGE_AGREEMENTS_NOT_ACCEPTED, "Package agreements were not agreed to"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_PROMPT_INPUT_ERROR, "Error reading input in prompt"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_UNSUPPORTED_SOURCE_REQUEST, "The search request is not supported by one or more sources"),
-            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESTSOURCE_ENDPOINT_NOT_FOUND, "The rest source endpoint is not found."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESTAPI_ENDPOINT_NOT_FOUND, "The rest API endpoint is not found."),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_SOURCE_OPEN_FAILED, "Failed to open the source."),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_SOURCE_AGREEMENTS_NOT_ACCEPTED, "Source agreements were not agreed to"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_CUSTOMHEADER_EXCEEDS_MAXLENGTH, "Header size exceeds the allowable limit of 1024 characters. Please reduce the size and try again."),
@@ -195,6 +196,29 @@ namespace AppInstaller
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_APPTERMINATION_RECEIVED, "Application shutdown signal received"),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_DOWNLOAD_DEPENDENCIES, "Failed to download package dependencies."),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_DOWNLOAD_COMMAND_PROHIBITED, "Failed to download package. Download for offline installation is prohibited."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_SERVICE_UNAVAILABLE, "A required service is busy or unavailable. Try again later."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESUME_ID_NOT_FOUND, "The guid provided does not correspond to a valid resume state."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_CLIENT_VERSION_MISMATCH, "The current client version did not match the client version of the saved state."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INVALID_RESUME_STATE, "The resume state data is invalid."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_CANNOT_OPEN_CHECKPOINT_INDEX, "Unable to open the checkpoint database."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_RESUME_LIMIT_EXCEEDED, "Exceeded max resume limit."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INVALID_AUTHENTICATION_INFO, "Invalid authentication info."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_AUTHENTICATION_TYPE_NOT_SUPPORTED, "Authentication method not supported."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_AUTHENTICATION_FAILED, "Authentication failed."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_AUTHENTICATION_INTERACTIVE_REQUIRED, "Authentication failed. Interactive authentication required."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_AUTHENTICATION_CANCELLED_BY_USER, "Authentication failed. User cancelled."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_AUTHENTICATION_INCORRECT_ACCOUNT, "Authentication failed. Authenticated account is not the desired account."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_NO_REPAIR_INFO_FOUND, "Repair command not found."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_REPAIR_NOT_APPLICABLE, "Repair operation is not applicable."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_EXEC_REPAIR_FAILED, "Repair operation failed."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_REPAIR_NOT_SUPPORTED, "The installer technology in use doesn't support repair."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_ADMIN_CONTEXT_REPAIR_PROHIBITED, "Repair operations involving administrator privileges are not permitted on packages installed within the user scope."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_SQLITE_CONNECTION_TERMINATED, "The SQLite connection was terminated to prevent corruption."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_DISPLAYCATALOG_API_FAILED, "Failed to get Microsoft Store package catalog."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_NO_APPLICABLE_DISPLAYCATALOG_PACKAGE, "No applicable Microsoft Store package found from Microsoft Store package catalog."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_SFSCLIENT_API_FAILED, "Failed to get Microsoft Store package download infomation."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_NO_APPLICABLE_SFSCLIENT_PACKAGE, "No applicable Microsoft Store package download infomation found."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_LICENSING_API_FAILED, "Failed to retrieve Microsoft Store package license."),
 
             // Install errors.
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INSTALL_PACKAGE_IN_USE, "Application is currently running. Exit the application then try again."),
@@ -206,7 +230,7 @@ namespace AppInstaller
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INSTALL_NO_NETWORK, "This application requires internet connectivity. Connect to a network then try again."),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INSTALL_CONTACT_SUPPORT, "This application encountered an error during installation. Contact support."),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INSTALL_REBOOT_REQUIRED_TO_FINISH, "Restart your PC to finish installation."),
-            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INSTALL_REBOOT_REQUIRED_TO_INSTALL, "Installation failed. Restart your PC then try again."),
+            WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INSTALL_REBOOT_REQUIRED_FOR_INSTALL, "Installation failed. Restart your PC then try again."),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INSTALL_REBOOT_INITIATED, "Your PC will restart to finish installation."),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INSTALL_CANCELLED_BY_USER, "You cancelled the installation."),
             WINGET_HRESULT_INFO(APPINSTALLER_CLI_ERROR_INSTALL_ALREADY_INSTALLED, "Another version of this application is already installed."),
@@ -243,6 +267,7 @@ namespace AppInstaller
             WINGET_HRESULT_INFO(WINGET_CONFIG_ERROR_MISSING_FIELD, "The configuration is missing a field."),
             WINGET_HRESULT_INFO(WINGET_CONFIG_ERROR_TEST_FAILED, "Some of the configuration units failed while testing their state."),
             WINGET_HRESULT_INFO(WINGET_CONFIG_ERROR_TEST_NOT_RUN, "Configuration state was not tested."),
+            WINGET_HRESULT_INFO(WINGET_CONFIG_ERROR_GET_FAILED, "The configuration unit failed getting its properties."),
 
             // Configuration Processor Errors
             WINGET_HRESULT_INFO(WINGET_CONFIG_ERROR_UNIT_NOT_INSTALLED, "The configuration unit was not installed."),
@@ -255,7 +280,9 @@ namespace AppInstaller
             WINGET_HRESULT_INFO(WINGET_CONFIG_ERROR_UNIT_IMPORT_MODULE, "Loading the module for the configuration unit failed."),
             WINGET_HRESULT_INFO(WINGET_CONFIG_ERROR_UNIT_INVOKE_INVALID_RESULT, "The configuration unit returned an unexpected result during execution."),
             WINGET_HRESULT_INFO(WINGET_CONFIG_ERROR_UNIT_SETTING_CONFIG_ROOT, "A unit contains a setting that requires the config root."),
-            
+            WINGET_HRESULT_INFO(WINGET_CONFIG_ERROR_UNIT_IMPORT_MODULE_ADMIN, "Loading the module for the configuration unit failed because it requires administrator privileges to run."),
+            WINGET_HRESULT_INFO(WINGET_CONFIG_ERROR_NOT_SUPPORTED_BY_PROCESSOR, "Operation is not supported by the configuration processor."),
+
             // Errors without the error bit set
             WINGET_HRESULT_INFO(WINGET_INSTALLED_STATUS_INSTALL_LOCATION_NOT_APPLICABLE, "The install location is not applicable."),
             WINGET_HRESULT_INFO(WINGET_INSTALLED_STATUS_FILE_FOUND_WITHOUT_HASH_CHECK, "The file was found but the hash was not checked."),

@@ -40,6 +40,9 @@ namespace AppInstaller::Manifest
     // V1.6 manifest version
     constexpr std::string_view s_ManifestVersionV1_6 = "1.6.0"sv;
 
+    // V1.7 manifest version
+    constexpr std::string_view s_ManifestVersionV1_7 = "1.7.0"sv;
+
     // The manifest extension for the MS Store
     constexpr std::string_view s_MSStoreExtension = "msstore"sv;
 
@@ -52,6 +55,7 @@ namespace AppInstaller::Manifest
         // Options not exposed in winget util
         bool FullValidation = false;
         bool ThrowOnWarning = false;
+        bool AllowShadowManifest = false;
     };
 
     // ManifestVer is inherited from Utility::Version and is a more restricted version.
@@ -109,6 +113,15 @@ namespace AppInstaller::Manifest
         Log,
         InstallLocation,
         Update,
+        Repair,
+    };
+
+    enum class RepairBehaviorEnum
+    {
+        Unknown,
+        Modify,
+        Installer,
+        Uninstaller,
     };
 
     enum class ScopeEnum
@@ -155,6 +168,9 @@ namespace AppInstaller::Manifest
         Unknown,
         Universal,
         Desktop,
+        IoT,
+        Team,
+        Holographic,
     };
 
     enum class ElevationRequirementEnum
@@ -189,6 +205,7 @@ namespace AppInstaller::Manifest
         Locale,
         Merged,
         Preview,
+        Shadow,
     };
 
     enum class DependencyType
@@ -349,7 +366,9 @@ namespace AppInstaller::Manifest
 
     InstallModeEnum ConvertToInstallModeEnum(const std::string& in);
 
-    PlatformEnum ConvertToPlatformEnum(const std::string& in);
+    PlatformEnum ConvertToPlatformEnum(std::string_view in);
+
+    PlatformEnum ConvertToPlatformEnumForMSStoreDownload(std::string_view in);
 
     ElevationRequirementEnum ConvertToElevationRequirementEnum(const std::string& in);
 
@@ -367,6 +386,8 @@ namespace AppInstaller::Manifest
 
     IconResolutionEnum ConvertToIconResolutionEnum(std::string_view in);
 
+    RepairBehaviorEnum ConvertToRepairBehaviorEnum(std::string_view in);
+
     std::string_view InstallerTypeToString(InstallerTypeEnum installerType);
 
     std::string_view InstallerSwitchTypeToString(InstallerSwitchType installerSwitchType);
@@ -378,6 +399,8 @@ namespace AppInstaller::Manifest
     std::string_view UnsupportedArgumentToString(UnsupportedArgumentEnum unsupportedArgument);
 
     std::string_view UpdateBehaviorToString(UpdateBehaviorEnum updateBehavior);
+
+    std::string_view RepairBehaviorToString(RepairBehaviorEnum repairBehavior);
 
     std::string_view PlatformToString(PlatformEnum platform);
 
@@ -412,6 +435,9 @@ namespace AppInstaller::Manifest
 
     // Gets a value indicating whether the given installer requires admin for install.
     bool DoesInstallerTypeRequireAdminForMachineScopeInstall(InstallerTypeEnum installerType);
+
+    // Gets a value indicating whether the given installer requires RepairBehavior for repair.
+    bool DoesInstallerTypeRequireRepairBehaviorForRepair(InstallerTypeEnum installerType);
 
     // Gets a value indicating whether the given installer type is an archive.
     bool IsArchiveType(InstallerTypeEnum installerType);

@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace Microsoft.WinGet.Client.Engine.Properties {
+namespace Microsoft.WinGet.Resources {
     using System;
     
     
@@ -66,6 +66,33 @@ namespace Microsoft.WinGet.Client.Engine.Properties {
         internal static string CatalogConnectExceptionMessage {
             get {
                 return ResourceManager.GetString("CatalogConnectExceptionMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Completed.
+        /// </summary>
+        internal static string Completed {
+            get {
+                return ResourceManager.GetString("Completed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Debug parameter not supported.
+        /// </summary>
+        internal static string DebugNotSupported {
+            get {
+                return ResourceManager.GetString("DebugNotSupported", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Downloading.
+        /// </summary>
+        internal static string DownloadingMessage {
+            get {
+                return ResourceManager.GetString("DownloadingMessage", resourceCulture);
             }
         }
         
@@ -187,20 +214,20 @@ namespace Microsoft.WinGet.Client.Engine.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Microsoft.UI.Xaml.2.7 package is not installed.
-        /// </summary>
-        internal static string MicrosoftUIXaml27Message {
-            get {
-                return ResourceManager.GetString("MicrosoftUIXaml27Message", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to No packages matched the given input criteria..
         /// </summary>
         internal static string NoPackageFoundExceptionMessage {
             get {
                 return ResourceManager.GetString("NoPackageFoundExceptionMessage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Exporting &apos;{0}&apos;.
+        /// </summary>
+        internal static string ProgressRecordActivityExporting {
+            get {
+                return ResourceManager.GetString("ProgressRecordActivityExporting", resourceCulture);
             }
         }
         
@@ -228,6 +255,15 @@ namespace Microsoft.WinGet.Client.Engine.Properties {
         internal static string ProgressRecordActivityUpdating {
             get {
                 return ResourceManager.GetString("ProgressRecordActivityUpdating", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cannot find asset {0}.
+        /// </summary>
+        internal static string ReleaseAssetNotFound {
+            get {
+                return ResourceManager.GetString("ReleaseAssetNotFound", resourceCulture);
             }
         }
         
@@ -286,6 +322,15 @@ namespace Microsoft.WinGet.Client.Engine.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Uninstalling.
+        /// </summary>
+        internal static string Uninstalling {
+            get {
+                return ResourceManager.GetString("Uninstalling", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to User settings file is invalid..
         /// </summary>
         internal static string UserSettingsReadException {
@@ -327,15 +372,6 @@ namespace Microsoft.WinGet.Client.Engine.Properties {
         internal static string WinGetCLITimeoutExceptionMessage {
             get {
                 return ResourceManager.GetString("WinGetCLITimeoutExceptionMessage", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Windows Package Manager not supported..
-        /// </summary>
-        internal static string WinGetNotSupportedMessage {
-            get {
-                return ResourceManager.GetString("WinGetNotSupportedMessage", resourceCulture);
             }
         }
     }

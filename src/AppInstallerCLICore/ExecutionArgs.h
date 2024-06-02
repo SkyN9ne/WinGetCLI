@@ -48,17 +48,22 @@ namespace AppInstaller::CLI::Execution
             AcceptPackageAgreements, // Accept all license agreements for packages
             Rename, // Renames the file of the executable. Only applies to the portable installerType
             NoUpgrade, // Install flow should not try to convert to upgrade flow upon finding existing installed version
+            AllowReboot, // Allows the reboot flow to proceed if applicable
 
             // Uninstall behavior
             Purge, // Removes all files and directories related to a package during an uninstall. Only applies to the portable installerType.
             Preserve, // Retains any files and directories created by the portable exe.
             ProductCode, // Uninstalls using the product code as the identifier.
+            AllVersions, // Uninstall all versions of the package
+            TargetVersion, // The specific version to target
 
             //Source Command
             SourceName,
             SourceType,
             SourceArg,
             ForceSourceReset,
+            SourceExplicit,
+            SourceTrustLevel,
 
             //Hash Command
             HashFile,
@@ -74,7 +79,6 @@ namespace AppInstaller::CLI::Execution
             Position,
 
             // Export Command
-            OutputFile,
             IncludeVersions,
 
             // Import Command
@@ -84,10 +88,14 @@ namespace AppInstaller::CLI::Execution
 
             // Download Command
             DownloadDirectory,
+            SkipMicrosoftStorePackageLicense,
+            Platform,
 
             // Setting Command
             AdminSettingEnable,
             AdminSettingDisable,
+            SettingName,
+            SettingValue,
 
             // Upgrade command
             All, // Used in Update command to update all installed packages to latest
@@ -109,12 +117,19 @@ namespace AppInstaller::CLI::Execution
             // Error command
             ErrorInput,
 
+            // Resume Command
+            ResumeId,
+            IgnoreResumeLimit,
+
             // Configuration
             ConfigurationFile,
             ConfigurationAcceptWarning,
             ConfigurationEnable,
             ConfigurationDisable,
             ConfigurationModulePath,
+            ConfigurationExportPackageId,
+            ConfigurationExportModule,
+            ConfigurationExportResource,
 
             // Common arguments
             NoVT, // Disable VirtualTerminal outputs
@@ -127,10 +142,18 @@ namespace AppInstaller::CLI::Execution
             Wait, // Prompts the user to press any key before exiting
             OpenLogs, // Opens the default logs directory after executing the command
             Force, // Forces the execution of the workflow with non security related issues
+            OutputFile,
 
             DependencySource, // Index source to be queried against for finding dependencies
             CustomHeader, // Optional Rest source header
             AcceptSourceAgreements, // Accept all source agreements
+
+            AuthenticationMode, // Authentication mode (silent, silentPreferred or interactive)
+            AuthenticationAccount, // Authentication account to be used
+
+            // Network Behavior
+            Proxy, // Set a proxy to use in this execution
+            NoProxy, // Do not use the default proxy
 
             ToolVersion,
 
@@ -141,7 +164,11 @@ namespace AppInstaller::CLI::Execution
             Max
         };
 
-        bool Contains(Type arg) const { return (m_parsedArgs.count(arg) != 0); }
+        template<typename... T, std::enable_if_t<(... && std::is_same_v<T, Args::Type>), bool> = true>
+        bool Contains(T... arg) const
+        {
+            return (... && (m_parsedArgs.count(arg) != 0));
+        }
 
         const std::vector<std::string>* GetArgs(Type arg) const
         {
@@ -204,10 +231,28 @@ namespace AppInstaller::CLI::Execution
             return types;
         }
 
+        // If the user passes the same value multiple times inside a MultiQuery, operations will be repeated
+        // Since there currently is not a way to include search options within a MultiQuery, processing duplicates
+        // does not make sense within a single invocation
+        void MakeMultiQueryContainUniqueValues()
+        {
+            auto itr = m_parsedArgs.find(Type::MultiQuery);
+            
+            // If there is not a value in MultiQuery, or there is only one value, it is presumed to be unique
+            if (itr == m_parsedArgs.end() || itr->second.size() == 1)
+            {
+                return;
+            }
+
+            std::set<std::string> querySet;
+            std::vector<std::string>& queryStrings = itr->second;
+
+            queryStrings.erase(std::remove_if(queryStrings.begin(), queryStrings.end(), [&](const std::string value) { return !querySet.insert(value).second; }), queryStrings.end());
+        }
+
         // If we get a single value for multi-query, we remove the argument and add it back as a single query.
         // This way the rest of the code can assume that if there is a MultiQuery we will always have multiple values,
         // and if there is a single one it will be in the Query type.
-        // This is the only case where we modify the parsed args from user input.
         void MoveMultiQueryToSingleQueryIfNeeded()
         {
             auto itr = m_parsedArgs.find(Type::MultiQuery);

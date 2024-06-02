@@ -78,6 +78,39 @@
     <ClCompile Include="DiagnosticInformationInstance.cpp">
       <Filter>Internals</Filter>
     </ClCompile>
+    <ClCompile Include="GetAllConfigurationUnitSettingsResult.cpp">
+      <Filter>API Source</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigurationParameter.cpp">
+      <Filter>API Source</Filter>
+    </ClCompile>
+    <ClCompile Include="ArgumentValidation.cpp">
+      <Filter>Internals</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigurationSetParser_0_3.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="DefaultSetGroupProcessor.cpp">
+      <Filter>Internals</Filter>
+    </ClCompile>
+    <ClCompile Include="TestGroupSettingsResult.cpp">
+      <Filter>Internals</Filter>
+    </ClCompile>
+    <ClCompile Include="TestSettingsResult.cpp">
+      <Filter>Internals</Filter>
+    </ClCompile>
+    <ClCompile Include="ApplyGroupSettingsResult.cpp">
+      <Filter>Internals</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigurationSetSerializer.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigurationSetSerializer_0_2.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigurationSetUtilities.cpp">
+      <Filter>Parser</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -162,6 +195,42 @@
     <ClInclude Include="DiagnosticInformationInstance.h">
       <Filter>Internals</Filter>
     </ClInclude>
+    <ClInclude Include="GetAllConfigurationUnitSettingsResult.h">
+      <Filter>API Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfigurationParameter.h">
+      <Filter>API Headers</Filter>
+    </ClInclude>
+    <ClInclude Include="ArgumentValidation.h">
+      <Filter>Internals</Filter>
+    </ClInclude>
+    <ClInclude Include="ParsingMacros.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfigurationSetParser_0_3.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="DefaultSetGroupProcessor.h">
+      <Filter>Internals</Filter>
+    </ClInclude>
+    <ClInclude Include="TestGroupSettingsResult.h">
+      <Filter>Internals</Filter>
+    </ClInclude>
+    <ClInclude Include="TestSettingsResult.h">
+      <Filter>Internals</Filter>
+    </ClInclude>
+    <ClInclude Include="ApplyGroupSettingsResult.h">
+      <Filter>Internals</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfigurationSetUtilities.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfigurationSetSerializer.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
+    <ClInclude Include="ConfigurationSetSerializer_0_2.h">
+      <Filter>Parser</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Midl Include="Microsoft.Management.Configuration.idl" />
@@ -187,5 +256,8 @@
     <Filter Include="Telemetry">
       <UniqueIdentifier>{5a02f1a5-14f3-4a28-8bed-212f3e6b1a00}</UniqueIdentifier>
     </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="$(MSBuildThisFileDirectory)..\..\natvis\wil.natvis" />
   </ItemGroup>
 </Project>

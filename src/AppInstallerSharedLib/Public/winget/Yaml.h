@@ -38,7 +38,8 @@ namespace AppInstaller::YAML
             Parser,
             Composer,
             Writer,
-            Emitter
+            Emitter,
+            Policy,
         };
 
         // Should only be used for Memory.
@@ -104,6 +105,10 @@ namespace AppInstaller::YAML
             return m_sequence->emplace_back(std::forward<Args>(args)...);
         }
 
+        // Merges sequence nodes. If both sequence have the specified key with the same value
+        // they will get merged together. All elements in sequence must have the key.
+        void MergeSequenceNode(Node other, std::string_view key, bool caseInsensitive = false);
+
         // Adds a child node to the mapping.
         template <typename... Args>
         Node& AddMappingNode(Node&& key, Args&&... args)
@@ -111,6 +116,9 @@ namespace AppInstaller::YAML
             Require(Type::Mapping);
             return m_mapping->emplace(std::move(key), Node(std::forward<Args>(args)...))->second;
         }
+
+        // Merge mapping node. If both contain a node with the same key preserve this.
+        void MergeMappingNode(Node other, bool caseInsensitive = false);
 
         bool IsDefined() const { return m_type != Type::Invalid; }
         bool IsNull() const { return m_type == Type::Invalid || m_type == Type::None || (m_type == Type::Scalar && m_scalar.empty()); }
@@ -148,6 +156,10 @@ namespace AppInstaller::YAML
         // Gets a child node from the mapping by its name.
         Node& operator[](std::string_view key);
         const Node& operator[](std::string_view key) const;
+
+        // Gets a child node from the mapping by its name case insensitive.
+        Node& GetChildNode(std::string_view key);
+        const Node& GetChildNode(std::string_view key) const;
 
         // Gets a child node from the sequence by its index.
         Node& operator[](size_t index);

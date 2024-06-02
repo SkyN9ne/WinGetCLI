@@ -142,7 +142,6 @@ namespace AppInstallerCLIE2ETests
         /// <summary>
         /// The configuration server unexpectedly exits. Winget should continue to operate properly.
         /// </summary>
-        [Ignore("The version of CppWinRT that we are currently using is old and causes an assert on this test. Once it is updated, remove this Ignore.")]
         [Test]
         public void ConfigServerUnexpectedExit()
         {
@@ -169,6 +168,18 @@ namespace AppInstallerCLIE2ETests
             string targetFilePath = TestCommon.GetTestDataFile("Configuration\\ResourceCaseInsensitive.txt");
             FileAssert.Exists(targetFilePath);
             Assert.AreEqual("Contents!", System.IO.File.ReadAllText(targetFilePath));
+        }
+
+        /// <summary>
+        /// Simple test to configure from an https configuration file.
+        /// </summary>
+        [Test]
+        public void ConfigureFromHttpsConfigurationFile()
+        {
+            string args = $"{Constants.TestSourceUrl}/TestData/Configuration/Configure_TestRepo_Location.yml";
+
+            var result = TestCommon.RunAICLICommand(CommandAndAgreementsAndVerbose, args);
+            Assert.AreEqual(0, result.ExitCode);
         }
 
         private void DeleteTxtFiles()

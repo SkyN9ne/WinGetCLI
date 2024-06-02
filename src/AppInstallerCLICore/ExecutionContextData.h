@@ -5,6 +5,7 @@
 #include <winget/Manifest.h>
 #include <winget/ARPCorrelation.h>
 #include <winget/Pin.h>
+#include <winget/PinningData.h>
 #include "CompletionData.h"
 #include "PackageCollection.h"
 #include "PortableInstaller.h"
@@ -17,11 +18,6 @@
 #include <utility>
 #include <variant>
 #include <vector>
-
-namespace AppInstaller::Repository::Microsoft
-{
-    struct PinningIndex;
-}
 
 namespace AppInstaller::CLI::Execution
 {
@@ -63,10 +59,12 @@ namespace AppInstaller::CLI::Execution
         AllowedArchitectures,
         AllowUnknownScope,
         PortableInstaller,
-        PinningIndex,
+        PinningData,
         Pins,
         ConfigurationContext,
         DownloadDirectory,
+        ModifyPath,
+        RepairString,
         Max
     };
 
@@ -107,7 +105,7 @@ namespace AppInstaller::CLI::Execution
         template <>
         struct DataMapping<Data::Package>
         {
-            using value_t = std::shared_ptr<Repository::IPackage>;
+            using value_t = std::shared_ptr<Repository::ICompositePackage>;
         };
 
         template <>
@@ -249,9 +247,9 @@ namespace AppInstaller::CLI::Execution
         };
 
         template <>
-        struct DataMapping<Data::PinningIndex>
+        struct DataMapping<Data::PinningData>
         {
-            using value_t = std::shared_ptr<Repository::Microsoft::PinningIndex>;
+            using value_t = Pinning::PinningData;
         };
 
         template <>
@@ -270,6 +268,19 @@ namespace AppInstaller::CLI::Execution
         struct DataMapping<Data::DownloadDirectory>
         {
             using value_t = std::filesystem::path;
+        };
+
+        template<>
+        struct DataMapping<Data::ModifyPath>
+        {
+            using value_t = std::string;
+        };
+
+
+        template<>
+        struct DataMapping<Data::RepairString>
+        {
+            using value_t = std::string;
         };
     }
 }

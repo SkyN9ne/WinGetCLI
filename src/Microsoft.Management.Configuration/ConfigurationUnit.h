@@ -47,22 +47,31 @@ namespace winrt::Microsoft::Management::Configuration::implementation
 
         Configuration::ConfigurationUnit Copy();
 
+        bool IsGroup();
+        void IsGroup(bool value);
+
+        Windows::Foundation::Collections::IVector<Configuration::ConfigurationUnit> Units();
+        void Units(const Windows::Foundation::Collections::IVector<Configuration::ConfigurationUnit>& value);
+
         HRESULT STDMETHODCALLTYPE SetLifetimeWatcher(IUnknown* watcher);
 
 #if !defined(INCLUDE_ONLY_INTERFACE_METHODS)
         void Dependencies(std::vector<hstring>&& value);
         void Details(IConfigurationUnitProcessorDetails&& details);
+        void Units(std::vector<Configuration::ConfigurationUnit>&& value);
 
     private:
         hstring m_type;
         guid m_instanceIdentifier;
         hstring m_identifier;
         ConfigurationUnitIntent m_intent = ConfigurationUnitIntent::Apply;
-        Windows::Foundation::Collections::IVector<hstring> m_dependencies{ winrt::single_threaded_vector<hstring>() };
+        Windows::Foundation::Collections::IVector<hstring> m_dependencies{ winrt::multi_threaded_vector<hstring>() };
         Windows::Foundation::Collections::ValueSet m_metadata;
         Windows::Foundation::Collections::ValueSet m_settings;
         IConfigurationUnitProcessorDetails m_details{ nullptr };
         bool m_isActive = true;
+        bool m_isGroup = false;
+        Windows::Foundation::Collections::IVector<Configuration::ConfigurationUnit> m_units = nullptr;
 #endif
     };
 }

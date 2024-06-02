@@ -1,4 +1,4 @@
-﻿// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // <copyright file="ErrorCodes.cs" company="Microsoft Corporation">
 //     Copyright (c) Microsoft Corporation. Licensed under the MIT License.
 // </copyright>
@@ -65,5 +65,15 @@ namespace Microsoft.Management.Configuration.Processor.Exceptions
         /// The unit contains a setting that requires config root.
         /// </summary>
         internal const int WinGetConfigUnitSettingConfigRoot = unchecked((int)0x8A15C110);
+
+        /// <summary>
+        /// The module where the DSC resource is implemented requires admin.
+        /// </summary>
+        internal const int WinGetConfigUnitImportModuleAdmin = unchecked((int)0x8A15C111);
+
+        /// <summary>
+        /// The property type of a unit is not supported.
+        /// </summary>
+        internal const int WinGetConfigUnitUnsupportedType = unchecked((int)0x8A15C112);
     }
 }

@@ -259,7 +259,13 @@ namespace AppInstaller::Settings
         WINGET_VALIDATE_PASS_THROUGH(EFExperimentalCmd)
         WINGET_VALIDATE_PASS_THROUGH(EFExperimentalArg)
         WINGET_VALIDATE_PASS_THROUGH(EFDirectMSI)
-        WINGET_VALIDATE_PASS_THROUGH(EFWindowsFeature)
+        WINGET_VALIDATE_PASS_THROUGH(EFResume)
+        WINGET_VALIDATE_PASS_THROUGH(EFConfiguration03)
+        WINGET_VALIDATE_PASS_THROUGH(EFSideBySide)
+        WINGET_VALIDATE_PASS_THROUGH(EFConfigureSelfElevation)
+        WINGET_VALIDATE_PASS_THROUGH(EFStoreDownload)
+        WINGET_VALIDATE_PASS_THROUGH(EFIndexV2)
+        WINGET_VALIDATE_PASS_THROUGH(EFConfigureExport)
         WINGET_VALIDATE_PASS_THROUGH(AnonymizePathForDisplay)
         WINGET_VALIDATE_PASS_THROUGH(TelemetryDisable)
         WINGET_VALIDATE_PASS_THROUGH(InteractivityDisable)
@@ -267,6 +273,7 @@ namespace AppInstaller::Settings
         WINGET_VALIDATE_PASS_THROUGH(DisableInstallNotes)
         WINGET_VALIDATE_PASS_THROUGH(UninstallPurgePortablePackage)
         WINGET_VALIDATE_PASS_THROUGH(NetworkWingetAlternateSourceURL)
+        WINGET_VALIDATE_PASS_THROUGH(MaxResumes)
 
 #ifndef AICLI_DISABLE_TEST_HOOKS
         WINGET_VALIDATE_PASS_THROUGH(EnableSelfInitiatedMinidump)
@@ -430,6 +437,18 @@ namespace AppInstaller::Settings
                 return Level::Crit;
             }
             return {};
+        }
+
+        WINGET_VALIDATE_SIGNATURE(LoggingChannelPreference)
+        {
+            Logging::Channel result = Logging::Channel::None;
+
+            for (auto const& entry : value)
+            {
+                result |= GetChannelFromName(entry);
+            }
+
+            return result;
         }
     }
 
